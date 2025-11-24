@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+
+  createdTime DateTime @default(now())
+  updatedTime DateTime @updatedAt
+}
+
+model Question {
+  id           Int        @id @default(autoincrement())
+  title        String    
+  content      String    
+  questionType QuestionType
+  language     String     @default("CHINESE")
+  options      Json?      // 格式示例：["选项A", "选项B", "选项C", "选项D"]
+  answer       Json       // 单选示例："A" / 多选示例：["A","C"] / 编程题示例："预期输出"
+  
+  createdTime DateTime @default(now())
+  updatedTime DateTime @updatedAt
+}
+
+enum QuestionType {
+  SINGLE_CHOICE   // 单选题
+  MULTIPLE_CHOICE // 多选题
+  PROGRAMMING     // 编程题
+}
