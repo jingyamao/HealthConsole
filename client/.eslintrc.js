@@ -1,23 +1,77 @@
 module.exports = {
-  root: true,
-  env: {
-    node: true,
-    browser: true,
+  'env': {
+    'browser': true,
+    'es2021': true,
+    'node': true
   },
-  extends: [
-    'plugin:vue/vue3-essential',
-    '@vue/standard',
-    'plugin:prettier/recommended',
+  'extends': [
+    'eslint:recommended',
+    'plugin:vue/vue3-essential'
   ],
-  parserOptions: {
-    ecmaVersion: 2020,
+  'overrides': [],
+  'parserOptions': {
+    'ecmaVersion': 'latest',
+    'sourceType': 'module'
   },
-  rules: {
+  'plugins': [
+    'vue'
+  ],
+  'rules': {
+    'indent': [
+      'error',
+      2,
+      {
+        'SwitchCase': 1
+      }
+    ],
+    'semi': [
+      'error',
+      'always'
+    ],
+    'quotes': [
+      'error',
+      'single'
+    ],
+    'no-trailing-spaces': 'error',
+    'keyword-spacing': [
+      'error',
+      {
+        'before': true
+      }
+    ],
+    'space-before-blocks': 'error',
+    'object-curly-spacing': [
+      'error',
+      'always'
+    ],
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-    'vue/multi-word-component-names': 'off',
-    'indent': ['error', 2, { 'SwitchCase': 1 }],
-    'quotes': ['error', 'single'],
-    'semi': ['error', 'never'],
-  },
-}
+    'array-bracket-spacing': [
+      'error',
+      'never'
+    ],
+    'block-spacing': 'error',
+    'brace-style': 'error',
+    'func-call-spacing': [
+      'error',
+      'never'
+    ],
+    'key-spacing': [
+      'error',
+      {
+        'beforeColon': false
+      }
+    ],
+    'new-cap': ['error', { 'capIsNew': false }],
+    'no-var': 'error',
+    'no-use-before-define': 'off',
+    'no-unused-vars': 'off',
+    'vue/html-indent': ['error', 2, {
+      'attribute': 1,
+      'baseIndent': 1,
+      'closeBracket': 0,
+      'alignAttributesVertically': true,
+      'ignores': []
+    }]
+  }
+};
