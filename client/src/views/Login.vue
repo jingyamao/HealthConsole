@@ -1,109 +1,336 @@
 <template>
   <div class="login-container">
+    <!-- 背景粒子容器 -->
+    <div class="particles-container">
+      <div
+        v-for="(particle, index) in particles"
+        :key="index"
+        class="particle"
+        :style="{
+          width: particle.size + 'px',
+          height: particle.size + 'px',
+          left: particle.x + '%',
+          top: particle.y + '%',
+          animationDelay: particle.delay + 's',
+          animationDuration: particle.duration + 's'
+        }"
+      ></div>
+    </div>
+
+    <!-- 医疗装饰图标 -->
+    <div class="medical-icon" style="top: 10%; left: 15%;">
+      <Icon name="heart" />
+    </div>
+    <div class="medical-icon" style="top: 25%; right: 20%; animation-delay: 5s;">
+      <Icon name="plus" />
+    </div>
+    <div class="medical-icon" style="bottom: 20%; left: 25%; animation-delay: 10s;">
+      <Icon name="plus" />
+    </div>
+    <div class="medical-icon" style="bottom: 15%; right: 15%; animation-delay: 15s;">
+      <Icon name="user" />
+    </div>
+
+    <!-- 主内容区 -->
     <div class="login-form">
-      <h2>医疗后台管理系统</h2>
-      <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="loginForm.username" placeholder="请输入用户名"></el-input>
-        </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码"></el-input>
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="handleLogin" :loading="loading" style="width: 100%">
-            登录
-          </el-button>
-        </el-form-item>
-      </el-form>
-      <div v-if="error" class="error-message">{{ error }}</div>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <!-- 心跳图标 -->
+          <Icon name="heart" color="white" />
+        </div>
+      </div>
+
+      <h1>医疗后台管理系统</h1>
+
+      <button
+        class="login-button"
+        @click="handleLogin"
+        @mouseenter="onButtonHover(true)"
+        @mouseleave="onButtonHover(false)"
+        title="进入系统"
+      >
+        <!-- 箭头图标 -->
+        <Icon name="arrow-right" color="white" className="arrow-icon" />
+      </button>
     </div>
   </div>
 </template>
 
-<script>
-import { useUserStore } from '../stores/user'
-import { ElMessage } from 'element-plus'
+<script setup>
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import Icon from '@/components/Icon.vue'
 
-export default {
-  name: 'Login',
-  data() {
-    return {
-      loginForm: {
-        username: '',
-        password: '',
-        remember: false
-      },
-      rules: {
-        username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-        password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-      },
-      loading: false,
-      error: ''
-    }
-  },
-  setup() {
-    const userStore = useUserStore()
-    
-    const handleLogin = async () => {
-      const loginFormRef = this.$refs.loginFormRef
-      await loginFormRef.validate(async (valid) => {
-        if (valid) {
-          this.loading = true
-          this.error = ''
-          try {
-            // 模拟登录，实际项目中会调用真实接口
-            // await userStore.login(this.loginForm)
-            
-            // 模拟登录成功
-            localStorage.setItem('token', 'mock-token')
-            ElMessage.success('登录成功')
-            this.$router.push('/dashboard')
-          } catch (error) {
-            this.error = error.message || '登录失败，请重试'
-          } finally {
-            this.loading = false
-          }
-        }
-      })
-    }
-    
-    return {
-      handleLogin
-    }
+const router = useRouter()
+const particles = ref([])
+const isHovering = ref(false)
+
+// 生成背景粒子
+const createParticles = () => {
+  const particleCount = 25
+  const newParticles = []
+
+  for (let i = 0; i < particleCount; i++) {
+    newParticles.push({
+      x: Math.random() * 100,
+      y: Math.random() * 100 + 100, // 从下方开始
+      size: Math.random() * 15 + 8,
+      delay: Math.random() * 15,
+      duration: Math.random() * 15 + 10
+    })
   }
+
+  particles.value = newParticles
 }
+
+// 处理登录
+const handleLogin = () => {
+  router.push('/dashboard')
+}
+
+// 按钮悬停效果
+const onButtonHover = (hovering) => {
+  isHovering.value = hovering
+}
+
+// 初始化
+onMounted(() => {
+  createParticles()
+})
 </script>
 
-<style scoped>
+<style lang="less" scoped>
 .login-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+  overflow: hidden;
+  z-index: 10;
+
+  /* 浮动粒子背景 */
+  .particles-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.8);
+      animation: float 15s infinite linear;
+      cursor: pointer;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+
+      &:hover {
+        transform: scale(1.5);
+        background-color: rgba(255, 255, 255, 0.9);
+      }
+    }
+  }
 }
 
+
+
+@keyframes float {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* 主内容区域 */
 .login-form {
-  width: 400px;
+  position: relative;
+  z-index: 20;
+  width: 90%;
+  max-width: 500px;
   padding: 40px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 107, 166, 0.2);
+  text-align: center;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  .logo-container {
+    margin-bottom: 25px;
+    animation: fadeIn 1.5s ease-out;
+    .logo-icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #00bcd4, #008ba3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 15px;
+      color: white;
+      font-size: 36px;
+      box-shadow: 0 8px 20px rgba(0, 155, 184, 0.3);
+    }
+  }
+  h1 {
+    color: #006b7d;
+    font-size: 2.2rem;
+    margin-bottom: 20px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    animation: slideUp 1s ease-out;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* 交互式按钮 */
+  .login-button {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #9ea1ff, #17dbfe);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(0, 155, 184, 0.4);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: none;
+    outline: none;
+    position: relative;
+    overflow: hidden;
+    animation: pulse 2s infinite 0.5s, fadeIn 1s ease-out 0.5s;
+    opacity: 0;
+    animation-fill-mode: forwards;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(0);
+      border-radius: 50%;
+      transition: transform 0.5s ease;
+    }
+
+    &:hover {
+      transform: scale(1.1) translateY(-5px);
+      box-shadow: 0 15px 30px rgba(0, 155, 184, 0.5);
+
+      &::before {
+        transform: scale(1.5);
+      }
+    }
+
+    &:active {
+      transform: scale(0.95);
+      box-shadow: 0 5px 15px rgba(0, 155, 184, 0.3);
+    }
+
+    .arrow-icon {
+      transition: transform 0.3s ease;
+
+      .login-button:hover & {
+        transform: translateX(5px);
+      }
+    }
+  }
+
 }
 
-.login-form h2 {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #303133;
+/* 装饰性医疗元素 */
+.medical-icon {
+  position: absolute;
+  opacity: 0.1;
+  color: #00bcd4;
+  font-size: 24px;
+  animation: fadeInRotate 20s infinite linear;
+  z-index: 5;
+  width: 24px;
+  height: 24px;
 }
 
-.error-message {
-  color: #f56c6c;
-  text-align: center;
-  margin-top: 16px;
-  font-size: 14px;
+/* 动画关键帧 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0.7); }
+  70% { box-shadow: 0 0 0 20px rgba(0, 188, 212, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 188, 212, 0); }
+}
+
+@keyframes fadeInRotate {
+  0% {
+    opacity: 0.05;
+    transform: rotate(0deg) scale(0.8);
+  }
+  50% {
+    opacity: 0.15;
+    transform: rotate(180deg) scale(1.1);
+  }
+  100% {
+    opacity: 0.05;
+    transform: rotate(360deg) scale(0.8);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 600px) {
+  .login-form {
+    padding: 30px 20px;
+    width: 95%;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  .logo-icon {
+    width: 70px;
+    height: 70px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .login-button {
+    width: 70px;
+    height: 70px;
+
+    .arrow-icon {
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 </style>

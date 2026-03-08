@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: '',
+  baseURL: '/api', // 接口基础路径
   timeout: 60000,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' }
@@ -9,10 +9,8 @@ const instance = axios.create({
 
 // 请求拦截器
 instance.interceptors.request.use((config) => {
-  // console.log('111111 config', config);
   return config;
 }, () => {
-  // TODO: sth
 });
 
 // 响应拦截器
@@ -20,14 +18,6 @@ instance.interceptors.response.use(
   (response) => {
     const { status, data } = response;
     if (status === 200) {
-      // 异常处理统一处理: code == 1, code=145为警告, 不影响流程
-      // if (
-      //   data?.code !== 0 &&
-      //   data?.code !== 'ok' &&
-      //   data?.code !== '' &&
-      //   data?.code !== 145
-      // ) {
-      // }
       return data;
     } else {
       return Promise.reject(response);
