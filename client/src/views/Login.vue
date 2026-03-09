@@ -85,7 +85,7 @@ const createParticles = () => {
 
 // 处理登录
 const handleLogin = () => {
-  router.push('/dashboard')
+  router.push('/Home')
 }
 
 // 按钮悬停效果
