@@ -7,16 +7,216 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
+// 枚举定义
+enum Gender {
+  男
+  女
+}
 
-  createdTime DateTime @default(now())
-  updatedTime DateTime @updatedAt
+enum HistoryType {
+  慢性疾病
+  手术史
+  过敏史
+  家族史
+  疫苗接种
+}
+
+enum DiagnosisType {
+  主要诊断
+  次要诊断
+  鉴别诊断
+}
+
+enum NoteType {
+  入院记录
+  病程记录
+  手术记录
+  出院记录
+}
+
+enum PaymentStatus {
+  未支付
+  部分支付
+  已支付
+}
+
+// 1. 患者基本信息表 (patients)
+model Patient {
+  id                String   @id @default(cuid()) @db.VarChar(20)
+  name              String   @db.VarChar(50)
+  gender            Gender   @default(男)
+  age               Int?
+  dateOfBirth       DateTime? @map("date_of_birth")
+  idCard            String?  @unique @map("id_card") @db.VarChar(20)
+  phone             String?  @unique @db.VarChar(20)
+  emergencyContact  Json?    @map("emergency_contact")
+  address           String?  @db.VarChar(200)
+  insurance         String?  @db.VarChar(100)
+  bloodType         String?  @map("blood_type") @db.VarChar(20)
+  maritalStatus     String?  @map("marital_status") @db.VarChar(20)
+  occupation        String?  @db.VarChar(50)
+  education         String?  @db.VarChar(50)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // 关系字段
+  medicalHistories      MedicalHistory[]
+  currentSymptoms       CurrentSymptom[]
+  physicalExaminations  PhysicalExamination[]
+  examinationResults    ExaminationResult[]
+  diagnoses             Diagnosis[]
+  treatmentPlans        TreatmentPlan[]
+  progressNotes         ProgressNote[]
+  financialInfos        FinancialInfo[]
+  medicalTeams          MedicalTeam[]
+
+  @@index([name])
+  @@index([phone])
+  @@map("patients")
+}
+
+// 2. 既往病史表 (medical_history)
+model MedicalHistory {
+  id        Int        @id @default(autoincrement())
+  patient   Patient    @relation(fields: [patientId], references: [id])
+  patientId String     @db.VarChar(20)
+  type      HistoryType
+  details   Json
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("medical_history")
+}
+
+// 3. 当前症状表 (current_symptoms)
+model CurrentSymptom {
+  id                Int      @id @default(autoincrement())
+  patient           Patient  @relation(fields: [patientId], references: [id])
+  patientId         String   @db.VarChar(20)
+  mainComplaint     String   @map("main_complaint") @db.VarChar(200)
+  symptoms          Json
+  duration          String?  @db.VarChar(50)
+  severity          String?  @db.VarChar(50)
+  aggravatingFactors String? @map("aggravating_factors") @db.VarChar(100)
+  relievingFactors  String?  @map("relieving_factors") @db.VarChar(100)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("current_symptoms")
+}
+
+// 4. 体格检查表 (physical_examination)
+model PhysicalExamination {
+  id               Int      @id @default(autoincrement())
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  patientId        String   @db.VarChar(20)
+  vitalSigns       String?  @map("vital_signs") @db.VarChar(200)
+  generalAppearance String? @map("general_appearance") @db.VarChar(200)
+  headAndNeck      String?  @map("head_and_neck") @db.VarChar(200)
+  chest            String?  @db.VarChar(200)
+  cardiovascular   String?  @db.VarChar(200)
+  abdomen          String?  @db.VarChar(200)
+  extremities      String?  @db.VarChar(200)
+  neurological     String?  @db.VarChar(200)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("physical_examination")
+}
+
+// 5. 检查结果表 (examination_results)
+model ExaminationResult {
+  id               Int      @id @default(autoincrement())
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  patientId        String   @db.VarChar(20)
+  laboratoryTests  String?  @map("laboratory_tests") @db.VarChar(500)
+  imagingStudies   String?  @map("imaging_studies") @db.VarChar(500)
+  specialTests     String?  @map("special_tests") @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("examination_results")
+}
+
+// 6. 诊断记录表 (diagnoses)
+model Diagnosis {
+  id             Int           @id @default(autoincrement())
+  patient        Patient       @relation(fields: [patientId], references: [id])
+  patientId      String        @db.VarChar(20)
+  icdCode        String?       @map("icd_code") @db.VarChar(20)
+  diagnosisName  String        @map("diagnosis_name") @db.VarChar(200)
+  type           DiagnosisType
+  diagnosisDate  DateTime?     @map("diagnosis_date")
+  doctorName     String?       @map("doctor_name") @db.VarChar(50)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@index([icdCode])
+  @@map("diagnoses")
+}
+
+// 7. 治疗方案表 (treatment_plans)
+model TreatmentPlan {
+  id                      Int      @id @default(autoincrement())
+  patient                 Patient  @relation(fields: [patientId], references: [id])
+  patientId               String   @db.VarChar(20)
+  medication              Json?
+  procedures              Json?
+  lifestyleRecommendations Json?   @map("lifestyle_recommendations")
+  followUpPlan            Json?   @map("follow_up_plan")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("treatment_plans")
+}
+
+// 8. 病程记录表 (progress_notes)
+model ProgressNote {
+  id         Int      @id @default(autoincrement())
+  patient    Patient  @relation(fields: [patientId], references: [id])
+  patientId  String   @db.VarChar(20)
+  noteDate   DateTime @map("note_date")
+  noteTime   String?  @map("note_time") @db.VarChar(8) // 时间格式 HH:MM:SS
+  author     String   @db.VarChar(50)
+  content    String   @db.Text
+  type       NoteType
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@index([noteDate])
+  @@map("progress_notes")
+}
+
+// 9. 费用信息表 (financial_info)
+model FinancialInfo {
+  id                 Int       @id @default(autoincrement())
+  patient            Patient   @relation(fields: [patientId], references: [id])
+  patientId          String    @db.VarChar(20)
+  totalCost          Float?    @map("total_cost")
+  insuranceCoverage  Float?    @map("insurance_coverage")
+  selfPayment        Float?    @map("self_payment")
+  paymentStatus      PaymentStatus
+  paymentHistory     Json?     @map("payment_history")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("financial_info")
+}
+
+// 10. 医疗团队表 (medical_team)
+model MedicalTeam {
+  id               Int      @id @default(autoincrement())
+  patient          Patient  @relation(fields: [patientId], references: [id])
+  patientId        String   @db.VarChar(20)
+  primaryPhysician Json?    @map("primary_physician")
+  nurse            Json?
+  specialists      Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("medical_team")
 }
