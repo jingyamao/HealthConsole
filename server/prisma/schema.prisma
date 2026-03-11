@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -46,24 +46,26 @@ enum PaymentStatus {
 
 // 1. 患者基本信息表 (patients)
 model Patient {
-  id                String   @id @default(cuid()) @db.VarChar(20)
-  name              String   @db.VarChar(50)
+  id                String   @id @default(uuid())
+  name              String
   gender            Gender   @default(男)
   age               Int?
   dateOfBirth       DateTime? @map("date_of_birth")
-  idCard            String?  @unique @map("id_card") @db.VarChar(20)
-  phone             String?  @unique @db.VarChar(20)
+  idCard            String?  @unique @map("id_card")
+  phone             String?  @unique
   emergencyContact  Json?    @map("emergency_contact")
-  address           String?  @db.VarChar(200)
-  insurance         String?  @db.VarChar(100)
-  bloodType         String?  @map("blood_type") @db.VarChar(20)
-  maritalStatus     String?  @map("marital_status") @db.VarChar(20)
-  occupation        String?  @db.VarChar(50)
-  education         String?  @db.VarChar(50)
+  address           String?
+  insurance         String?
+  bloodType         String?  @map("blood_type")
+  maritalStatus     String?  @map("marital_status")
+  occupation        String?
+  education         String?
+  aiConsent         Boolean  @default(false) // AI分析同意
+  vectorVersion     String?  // 向量版本（用于追踪向量更新）
+  aiNotes           Json?    // AI分析备注
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  // 关系字段
   medicalHistories      MedicalHistory[]
   currentSymptoms       CurrentSymptom[]
   physicalExaminations  PhysicalExamination[]
@@ -73,6 +75,7 @@ model Patient {
   progressNotes         ProgressNote[]
   financialInfos        FinancialInfo[]
   medicalTeams          MedicalTeam[]
+  vectorStores          VectorStore[]
 
   @@index([name])
   @@index([phone])
@@ -83,7 +86,7 @@ model Patient {
 model MedicalHistory {
   id        Int        @id @default(autoincrement())
   patient   Patient    @relation(fields: [patientId], references: [id])
-  patientId String     @db.VarChar(20)
+  patientId String
   type      HistoryType
   details   Json
   createdAt DateTime   @default(now()) @map("created_at")
@@ -96,13 +99,13 @@ model MedicalHistory {
 model CurrentSymptom {
   id                Int      @id @default(autoincrement())
   patient           Patient  @relation(fields: [patientId], references: [id])
-  patientId         String   @db.VarChar(20)
-  mainComplaint     String   @map("main_complaint") @db.VarChar(200)
+  patientId         String
+  mainComplaint     String   @map("main_complaint")
   symptoms          Json
-  duration          String?  @db.VarChar(50)
-  severity          String?  @db.VarChar(50)
-  aggravatingFactors String? @map("aggravating_factors") @db.VarChar(100)
-  relievingFactors  String?  @map("relieving_factors") @db.VarChar(100)
+  duration          String?
+  severity          String?
+  aggravatingFactors String? @map("aggravating_factors")
+  relievingFactors  String?  @map("relieving_factors")
   createdAt         DateTime @default(now()) @map("created_at")
 
   @@index([patientId])
@@ -113,15 +116,15 @@ model CurrentSymptom {
 model PhysicalExamination {
   id               Int      @id @default(autoincrement())
   patient          Patient  @relation(fields: [patientId], references: [id])
-  patientId        String   @db.VarChar(20)
-  vitalSigns       String?  @map("vital_signs") @db.VarChar(200)
-  generalAppearance String? @map("general_appearance") @db.VarChar(200)
-  headAndNeck      String?  @map("head_and_neck") @db.VarChar(200)
-  chest            String?  @db.VarChar(200)
-  cardiovascular   String?  @db.VarChar(200)
-  abdomen          String?  @db.VarChar(200)
-  extremities      String?  @db.VarChar(200)
-  neurological     String?  @db.VarChar(200)
+  patientId        String
+  vitalSigns       String?  @map("vital_signs")
+  generalAppearance String? @map("general_appearance")
+  headAndNeck      String?  @map("head_and_neck")
+  chest            String?
+  cardiovascular   String?
+  abdomen          String?
+  extremities      String?
+  neurological     String?
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([patientId])
@@ -132,10 +135,10 @@ model PhysicalExamination {
 model ExaminationResult {
   id               Int      @id @default(autoincrement())
   patient          Patient  @relation(fields: [patientId], references: [id])
-  patientId        String   @db.VarChar(20)
-  laboratoryTests  String?  @map("laboratory_tests") @db.VarChar(500)
-  imagingStudies   String?  @map("imaging_studies") @db.VarChar(500)
-  specialTests     String?  @map("special_tests") @db.VarChar(500)
+  patientId        String
+  laboratoryTests  String?  @map("laboratory_tests")
+  imagingStudies   String?  @map("imaging_studies")
+  specialTests     String?  @map("special_tests")
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([patientId])
@@ -146,12 +149,12 @@ model ExaminationResult {
 model Diagnosis {
   id             Int           @id @default(autoincrement())
   patient        Patient       @relation(fields: [patientId], references: [id])
-  patientId      String        @db.VarChar(20)
-  icdCode        String?       @map("icd_code") @db.VarChar(20)
-  diagnosisName  String        @map("diagnosis_name") @db.VarChar(200)
+  patientId      String
+  icdCode        String?       @map("icd_code")
+  diagnosisName  String        @map("diagnosis_name")
   type           DiagnosisType
   diagnosisDate  DateTime?     @map("diagnosis_date")
-  doctorName     String?       @map("doctor_name") @db.VarChar(50)
+  doctorName     String?       @map("doctor_name")
   createdAt      DateTime      @default(now()) @map("created_at")
 
   @@index([patientId])
@@ -163,11 +166,11 @@ model Diagnosis {
 model TreatmentPlan {
   id                      Int      @id @default(autoincrement())
   patient                 Patient  @relation(fields: [patientId], references: [id])
-  patientId               String   @db.VarChar(20)
+  patientId               String
   medication              Json?
   procedures              Json?
   lifestyleRecommendations Json?   @map("lifestyle_recommendations")
-  followUpPlan            Json?   @map("follow_up_plan")
+  followUpPlan            Json?    @map("follow_up_plan")
   createdAt               DateTime @default(now()) @map("created_at")
 
   @@index([patientId])
@@ -178,11 +181,11 @@ model TreatmentPlan {
 model ProgressNote {
   id         Int      @id @default(autoincrement())
   patient    Patient  @relation(fields: [patientId], references: [id])
-  patientId  String   @db.VarChar(20)
+  patientId  String
   noteDate   DateTime @map("note_date")
-  noteTime   String?  @map("note_time") @db.VarChar(8) // 时间格式 HH:MM:SS
-  author     String   @db.VarChar(50)
-  content    String   @db.Text
+  noteTime   String?  @map("note_time") // 时间格式 HH:MM:SS
+  author     String
+  content    String
   type       NoteType
   createdAt  DateTime @default(now()) @map("created_at")
 
@@ -195,7 +198,7 @@ model ProgressNote {
 model FinancialInfo {
   id                 Int       @id @default(autoincrement())
   patient            Patient   @relation(fields: [patientId], references: [id])
-  patientId          String    @db.VarChar(20)
+  patientId          String
   totalCost          Float?    @map("total_cost")
   insuranceCoverage  Float?    @map("insurance_coverage")
   selfPayment        Float?    @map("self_payment")
@@ -211,7 +214,7 @@ model FinancialInfo {
 model MedicalTeam {
   id               Int      @id @default(autoincrement())
   patient          Patient  @relation(fields: [patientId], references: [id])
-  patientId        String   @db.VarChar(20)
+  patientId        String
   primaryPhysician Json?    @map("primary_physician")
   nurse            Json?
   specialists      Json?
@@ -220,3 +223,113 @@ model MedicalTeam {
   @@index([patientId])
   @@map("medical_team")
 }
+
+// 11. 向量数据表 (vector_store) 
+model VectorStore {
+  id            Int      @id @default(autoincrement())
+
+  // 数据源标识
+  sourceType    String   @default("patient") @map("source_type") // 数据来源类型: "knowledge", "patient", "conversation"
+  sourceId      String?  @map("source_id")   // 源数据ID
+
+  // 显式关系字段
+  patient           Patient?       @relation(fields: [patientId], references: [id])
+  patientId         String?        @map("patient_id")
+  knowledgeDocument KnowledgeDocument? @relation(fields: [knowledgeDocumentId], references: [id])
+  knowledgeDocumentId Int?          @map("knowledge_document_id")
+
+  // 内容信息
+  title         String?  // 内容标题
+  content       String   // 原始文本内容
+  vector        Json     // 使用Json存储向量数组 [0.1, 0.2, ...]
+
+  // 分类标签
+  contentType   String?  @map("content_type")
+  tags          String[] @default([])
+
+  // 元数据
+  metadata      Json?
+  relevance     Float?   @default(0)
+
+  // 时间戳
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // 索引
+  @@index([sourceType, sourceId])
+  @@index([patientId])
+  @@index([knowledgeDocumentId])
+  @@index([contentType])
+  @@index([tags])
+  @@index([createdAt])
+  @@map("vector_store")
+}
+
+// 12. 用户表 (ai_users) - AI对话用户
+model AiUser {
+  id        String   @id @default(uuid())
+  userId    String   @unique // 用户标识（前端传入）
+  userName  String?  // 用户昵称（可选）
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  conversations Conversation[]
+
+  @@map("ai_users")
+}
+
+// 13. 对话会话表 (conversations)
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String?  // 对话标题（自动生成或用户设置）
+  status    String   @default("active") // active, archived
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     AiUser   @relation(fields: [userId], references: [id])
+  messages Message[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("conversations")
+}
+
+// 14. 消息表 (messages)
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  role           String   // user, assistant
+  content        String   // 消息内容
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+
+// 15. 知识文档表 (knowledge_documents)
+model KnowledgeDocument {
+  id          Int      @id @default(autoincrement())
+  title       String   // 文档标题
+  content     String   // 文档内容
+  source      String?  // 来源（如"中华医学会"）
+  version     String?  // 版本号
+  tags        String[] @default([]) // 标签数组
+  category    String?  // 分类（如"指南"、"论文"、"教材"）
+  publishDate DateTime? // 发布日期
+  metadata    Json?    // 其他元数据
+  isActive    Boolean  @default(true) // 是否启用
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  vectorStores VectorStore[]
+
+  @@index([category])
+  @@index([tags])
+  @@map("knowledge_documents")
+}
+

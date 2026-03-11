@@ -1,0 +1,43 @@
+2型糖尿病防治指南（2020年版）
+
+一、概述
+2型糖尿病（T2DM）是一种以高血糖为特征的代谢性疾病，主要由胰岛素分泌不足和胰岛素抵抗引起。根据国际糖尿病联盟（IDF）统计，全球约有4.63亿糖尿病患者，中国糖尿病患病率约为11.2%。
+
+二、诊断标准
+1. 糖化血红蛋白（HbA1c）≥6.5%
+2. 空腹血糖（FPG）≥7.0 mmol/L
+3. 口服葡萄糖耐量试验（OGTT）2小时血糖≥11.1 mmol/L
+4. 典型糖尿病症状（多饮、多尿、多食、体重下降）+随机血糖≥11.1 mmol/L
+
+三、治疗原则
+1. 生活方式干预：饮食控制、运动疗法、体重管理
+2. 药物治疗：二甲双胍为首选，根据病情可联合使用其他降糖药物
+3. 血糖监测：自我血糖监测（SMBG）和糖化血红蛋白监测
+4. 并发症筛查：每年筛查眼底、肾脏、神经和心血管并发症
+
+四、药物治疗方案
+1. 一线药物：二甲双胍
+2. 二线药物：磺脲类、格列奈类、α-糖苷酶抑制剂
+3. 三线药物：噻唑烷二酮类、DPP-4抑制剂、SGLT2抑制剂、GLP-1受体激动剂
+4. 胰岛素治疗：适用于口服药控制不佳或存在严重高血糖的患者
+
+五、并发症管理
+1. 糖尿病肾病：控制血压、使用ACEI/ARB类药物
+2. 糖尿病视网膜病变：定期眼科检查，必要时激光治疗
+3. 糖尿病足：足部护理、预防感染、多学科管理
+4. 心血管疾病：控制血压、血脂，使用抗血小板药物
+
+六、患者教育
+1. 饮食指导：控制总热量，合理分配碳水化合物、蛋白质、脂肪
+2. 运动建议：每周至少150分钟中等强度有氧运动
+3. 自我监测：教会患者使用血糖仪，记录血糖日记
+4. 心理支持：关注患者心理健康，提供心理疏导
+
+七、参考文献
+1. 中华医学会糖尿病学分会. 2型糖尿病防治指南（2020年版）[J]. 中华糖尿病杂志, 2021, 13(4): 315-409.
+2. American Diabetes Association. Standards of Medical Care in Diabetes—2021[J]. Diabetes Care, 2021, 44(Suppl 1): S1-S232.
+3. Davies MJ, D'Alessio DA, Fradkin J, et al. Management of Hyperglycemia in Type 2 Diabetes, 2018. A Consensus Report by the American Diabetes Association (ADA) and the European Association for the Study of Diabetes (EASD)[J]. Diabetes Care, 2018, 41(12): 2669-2701.
+4. 中华医学会内分泌学分会. 中国2型糖尿病防治指南（2020年版）[J]. 中华内分泌代谢杂志, 2021, 37(4): 311-398.
+5. Zinman B, Wanner C, Lachin JM, et al. Empagliflozin, Cardiovascular Outcomes, and Mortality in Type 2 Diabetes[J]. N Engl J Med, 2015, 373(22): 2117-2128.
+
+关键词：2型糖尿病、降糖药物、并发症、指南、中国

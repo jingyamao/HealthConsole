@@ -1,12 +1,98 @@
 import Mock from "mockjs";
 import { PrismaClient } from "../generated/prisma/index.js";
+import fs from "fs";
+import path from "path";
 const prisma = new PrismaClient();
+
+// 生成随机向量（1536维，匹配OpenAI）
+function generateRandomVector(dimension = 1536) {
+  const vector = [];
+  for (let i = 0; i < dimension; i++) {
+    vector.push(Math.random() * 2 - 1);
+  }
+  return vector;
+}
+
+// 读取知识库文档
+function readKnowledgeDocuments() {
+  const knowledgeBaseDir = path.join(process.cwd(), 'knowledge_base');
+  const files = fs.readdirSync(knowledgeBaseDir);
+  
+  const documents = [];
+  files.forEach(file => {
+    if (!file.endsWith('.txt')) return;
+    
+    const filePath = path.join(knowledgeBaseDir, file);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    
+    const title = file.replace('.txt', '');
+    const category = extractCategory(title, content);
+    const tags = extractTags(content);
+    const source = extractSource(content);
+    
+    documents.push({
+      title,
+      content,
+      source,
+      version: 'v1.0',
+      tags,
+      category,
+      publishDate: new Date('2020-01-01'),
+      metadata: {
+        fileName: file,
+        category,
+        source
+      },
+      isActive: true
+    });
+  });
+  
+  return documents;
+}
+
+// 提取文档分类
+function extractCategory(title, content) {
+  if (title.includes('症状')) return '症状鉴别';
+  if (title.includes('心肌梗死')) return '心血管疾病';
+  if (title.includes('糖尿病')) return '内分泌疾病';
+  if (title.includes('高血压')) return '心血管疾病';
+  if (title.includes('中医')) return '中医诊疗';
+  return '医学指南';
+}
+
+// 提取标签
+function extractTags(content) {
+  const keywords = [];
+  
+  const medicalKeywords = [
+    '发热', '头痛', '胸痛', '呼吸困难', '腹痛', '水肿', '晕厥',
+    '心肌梗死', '糖尿病', '高血压', '中医', '辨证论治',
+    '诊断', '治疗', '指南', '并发症', '预防', '康复',
+    '针灸', '中药', '生活方式', '危险因素', '药物治疗'
+  ];
+  
+  medicalKeywords.forEach(keyword => {
+    if (content.includes(keyword)) {
+      keywords.push(keyword);
+    }
+  });
+  
+  return keywords.slice(0, 5);
+}
+
+// 提取来源信息
+function extractSource(content) {
+  const sourceMatch = content.match(/来源[:：]\s*([^\n]+)/);
+  if (sourceMatch) {
+    return sourceMatch[1].trim();
+  }
+  return '医学文献';
+}
 
 // 生成测试数据
 const generateMockData = async () => {
   console.log("开始生成模拟医疗数据...");
 
-  // 生成100个患者
   const patients = Array.from({ length: 100 }, (_, index) => {
     const patientId = `P2024${String(index + 1).padStart(6, '0')}`;
     const birthYear = Mock.Random.integer(1940, 2010);
@@ -32,18 +118,18 @@ const generateMockData = async () => {
       maritalStatus: Mock.Random.pick(['未婚', '已婚', '离异', '丧偶']),
       occupation: Mock.Random.pick(['公务员', '教师', '医生', '工程师', '工人', '农民', '自由职业', '退休', '学生']),
       education: Mock.Random.pick(['小学', '初中', '高中', '大专', '本科', '硕士', '博士']),
+      aiConsent: Mock.Random.boolean(),
+      vectorVersion: `v${Mock.Random.integer(1, 10)}.${Mock.Random.integer(0, 9)}`,
+      aiNotes: JSON.stringify({ notes: Mock.Random.csentence(10, 20) }),
       createdAt: new Date(),
       updatedAt: new Date()
     };
   });
 
-  // 批量插入患者
   await prisma.patient.createMany({ data: patients });
   console.log(`已插入 ${patients.length} 个患者记录`);
 
-  // 为每个患者生成关联数据
   for (const patient of patients) {
-    // 1. 生成既往病史 (1-3条)
     const historyTypes = ['慢性疾病', '手术史', '过敏史', '家族史', '疫苗接种'];
     const medicalHistories = Array.from({ length: Mock.Random.integer(1, 3) }, () => ({
       patientId: patient.id,
@@ -58,7 +144,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 2. 生成当前症状 (1-2条)
     const currentSymptoms = Array.from({ length: Mock.Random.integer(1, 2) }, () => ({
       patientId: patient.id,
       mainComplaint: Mock.Random.ctitle(3, 8),
@@ -73,7 +158,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 3. 生成体格检查 (1-2条)
     const physicalExaminations = Array.from({ length: Mock.Random.integer(1, 2) }, () => ({
       patientId: patient.id,
       vitalSigns: `血压${Mock.Random.integer(110, 160)}/${Mock.Random.integer(70, 100)}mmHg,心率${Mock.Random.integer(60, 100)}次/分,呼吸${Mock.Random.integer(16, 24)}次/分,体温${(36 + Mock.Random.float(0, 1, 1, 1)).toFixed(1)}℃`,
@@ -87,7 +171,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 4. 生成检查结果 (1条)
     const examinationResults = {
       patientId: patient.id,
       laboratoryTests: Mock.Random.csentence(10, 20),
@@ -96,7 +179,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     };
 
-    // 5. 生成诊断记录 (1-3条)
     const diagnosisTypes = ['主要诊断', '次要诊断', '鉴别诊断'];
     const diagnoses = Array.from({ length: Mock.Random.integer(1, 3) }, () => ({
       patientId: patient.id,
@@ -108,7 +190,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 6. 生成治疗方案 (1-2条)
     const treatmentPlans = Array.from({ length: Mock.Random.integer(1, 2) }, () => ({
       patientId: patient.id,
       medication: JSON.stringify([
@@ -130,7 +211,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 7. 生成病程记录 (1-3条)
     const noteTypes = ['入院记录', '病程记录', '手术记录', '出院记录'];
     const progressNotes = Array.from({ length: Mock.Random.integer(1, 3) }, () => ({
       patientId: patient.id,
@@ -142,7 +222,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     }));
 
-    // 8. 生成费用信息 (1条)
     const financialInfo = {
       patientId: patient.id,
       totalCost: Mock.Random.float(1000, 50000, 2, 2),
@@ -155,7 +234,6 @@ const generateMockData = async () => {
       createdAt: new Date()
     };
 
-    // 9. 生成医疗团队 (1条)
     const medicalTeam = {
       patientId: patient.id,
       primaryPhysician: JSON.stringify({
@@ -176,58 +254,105 @@ const generateMockData = async () => {
       createdAt: new Date()
     };
 
-    // 批量插入当前患者的所有关联数据
     await prisma.$transaction(async (tx) => {
-      // 插入既往病史
       if (medicalHistories.length > 0) {
         await tx.medicalHistory.createMany({ data: medicalHistories });
       }
 
-      // 插入当前症状
       if (currentSymptoms.length > 0) {
         await tx.currentSymptom.createMany({ data: currentSymptoms });
       }
 
-      // 插入体格检查
       if (physicalExaminations.length > 0) {
         await tx.physicalExamination.createMany({ data: physicalExaminations });
       }
 
-      // 插入检查结果
       await tx.examinationResult.create({ data: examinationResults });
 
-      // 插入诊断记录
       if (diagnoses.length > 0) {
         await tx.diagnosis.createMany({ data: diagnoses });
       }
 
-      // 插入治疗方案
       if (treatmentPlans.length > 0) {
         await tx.treatmentPlan.createMany({ data: treatmentPlans });
       }
 
-      // 插入病程记录
       if (progressNotes.length > 0) {
         await tx.progressNote.createMany({ data: progressNotes });
       }
 
-      // 插入费用信息
       await tx.financialInfo.create({ data: financialInfo });
-
-      // 插入医疗团队
       await tx.medicalTeam.create({ data: medicalTeam });
+
+      const patientVector = generateRandomVector(1536);
+      const patientVectorData = {
+        sourceType: 'patient',
+        sourceId: patient.id,
+        patientId: patient.id,
+        title: `${patient.name}的患者信息`,
+        content: `患者${patient.name}，${patient.gender}，${patient.age}岁，主要症状：头痛、发热...`,
+        vector: patientVector,
+        contentType: 'patient_record',
+        tags: ['患者', patient.gender, `${patient.age}岁`],
+        metadata: { patientName: patient.name, patientId: patient.id, gender: patient.gender, age: patient.age },
+        relevance: Mock.Random.float(0, 1, 2, 2)
+      };
+
+      await tx.vectorStore.create({ data: patientVectorData });
     });
   }
 
-  console.log("所有模拟数据生成完成！");
+  console.log("患者数据生成完成！");
+
+  await generateKnowledgeDocuments();
 };
 
-// 初始化函数
+// 生成知识文档数据
+async function generateKnowledgeDocuments() {
+  console.log("开始生成知识文档...");
+  
+  const documents = readKnowledgeDocuments();
+  const createdDocuments = [];
+  
+  for (const document of documents) {
+    const createdDoc = await prisma.knowledgeDocument.create({
+      data: document
+    });
+    createdDocuments.push(createdDoc);
+  }
+  
+  console.log(`已插入 ${createdDocuments.length} 个知识文档`);
+
+  for (const document of createdDocuments) {
+    const documentVector = generateRandomVector(1536);
+    const vectorData = {
+      sourceType: 'knowledge',
+      sourceId: document.id.toString(),
+      knowledgeDocumentId: document.id,
+      title: document.title,
+      content: document.content.substring(0, 500),
+      vector: documentVector,
+      contentType: 'knowledge_base',
+      tags: document.tags,
+      metadata: {
+        documentId: document.id,
+        category: document.category,
+        source: document.source
+      },
+      relevance: Mock.Random.float(0, 1, 2, 2)
+    };
+
+    await prisma.vectorStore.create({ data: vectorData });
+  }
+  
+  console.log(`已为 ${createdDocuments.length} 个知识文档生成向量数据`);
+}
+
 async function init() {
   try {
-    // 清空现有数据（按依赖关系删除）
     console.log("开始清空现有数据...");
     await prisma.$transaction([
+      prisma.vectorStore.deleteMany(),
       prisma.medicalTeam.deleteMany(),
       prisma.financialInfo.deleteMany(),
       prisma.progressNote.deleteMany(),
@@ -237,18 +362,21 @@ async function init() {
       prisma.physicalExamination.deleteMany(),
       prisma.currentSymptom.deleteMany(),
       prisma.medicalHistory.deleteMany(),
-      prisma.patient.deleteMany()
+      prisma.patient.deleteMany(),
+      prisma.knowledgeDocument.deleteMany()
     ]);
     console.log("现有数据已清空");
 
-    // 生成新的模拟数据
     await generateMockData();
 
-    // 验证数据
     const patientCount = await prisma.patient.count();
+    const knowledgeDocCount = await prisma.knowledgeDocument.count();
+    const vectorCount = await prisma.vectorStore.count();
+    
     console.log(`数据库中现有患者数量: ${patientCount}`);
+    console.log(`数据库中现有知识文档数量: ${knowledgeDocCount}`);
+    console.log(`数据库中现有向量数据数量: ${vectorCount}`);
 
-    // 关闭数据库连接
     await prisma.$disconnect();
     console.log("数据库连接已关闭");
   } catch (error) {
@@ -258,5 +386,4 @@ async function init() {
   }
 }
 
-// 执行初始化
 init();
