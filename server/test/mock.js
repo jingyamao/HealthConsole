@@ -2,16 +2,10 @@ import Mock from "mockjs";
 import { PrismaClient } from "../generated/prisma/index.js";
 import fs from "fs";
 import path from "path";
-const prisma = new PrismaClient();
+import VectorService from "../services/ai/vector/vectorService.js";
 
-// 生成随机向量（1536维，匹配OpenAI）
-function generateRandomVector(dimension = 1536) {
-  const vector = [];
-  for (let i = 0; i < dimension; i++) {
-    vector.push(Math.random() * 2 - 1);
-  }
-  return vector;
-}
+const prisma = new PrismaClient();
+const vectorService = new VectorService();
 
 // 读取知识库文档
 function readKnowledgeDocuments() {
@@ -93,7 +87,8 @@ function extractSource(content) {
 const generateMockData = async () => {
   console.log("开始生成模拟医疗数据...");
 
-  const patients = Array.from({ length: 100 }, (_, index) => {
+  // 生成5个患者
+  const patients = Array.from({ length: 5 }, (_, index) => {
     const patientId = `P2024${String(index + 1).padStart(6, '0')}`;
     const birthYear = Mock.Random.integer(1940, 2010);
     const birthMonth = Mock.Random.integer(1, 12);
@@ -129,6 +124,7 @@ const generateMockData = async () => {
   await prisma.patient.createMany({ data: patients });
   console.log(`已插入 ${patients.length} 个患者记录`);
 
+  // 为每个患者生成关联数据和向量
   for (const patient of patients) {
     const historyTypes = ['慢性疾病', '手术史', '过敏史', '家族史', '疫苗接种'];
     const medicalHistories = Array.from({ length: Mock.Random.integer(1, 3) }, () => ({
@@ -254,6 +250,7 @@ const generateMockData = async () => {
       createdAt: new Date()
     };
 
+    // 使用事务处理所有关联数据和向量
     await prisma.$transaction(async (tx) => {
       if (medicalHistories.length > 0) {
         await tx.medicalHistory.createMany({ data: medicalHistories });
@@ -284,21 +281,22 @@ const generateMockData = async () => {
       await tx.financialInfo.create({ data: financialInfo });
       await tx.medicalTeam.create({ data: medicalTeam });
 
-      const patientVector = generateRandomVector(1536);
-      const patientVectorData = {
-        sourceType: 'patient',
-        sourceId: patient.id,
+      // 使用真实的嵌入模型生成患者向量
+      const patientContent = `患者${patient.name}，${patient.gender}，${patient.age}岁，主要症状：${currentSymptoms[0]?.mainComplaint || '一般症状'}...`;
+      const patientVectorRecord = await vectorService.storePatientVector({
         patientId: patient.id,
+        content: patientContent,
         title: `${patient.name}的患者信息`,
-        content: `患者${patient.name}，${patient.gender}，${patient.age}岁，主要症状：头痛、发热...`,
-        vector: patientVector,
-        contentType: 'patient_record',
-        tags: ['患者', patient.gender, `${patient.age}岁`],
-        metadata: { patientName: patient.name, patientId: patient.id, gender: patient.gender, age: patient.age },
-        relevance: Mock.Random.float(0, 1, 2, 2)
-      };
-
-      await tx.vectorStore.create({ data: patientVectorData });
+        metadata: { 
+          patientName: patient.name, 
+          patientId: patient.id, 
+          gender: patient.gender, 
+          age: patient.age,
+          symptoms: currentSymptoms.map(s => s.mainComplaint)
+        }
+      });
+      
+      console.log(`为患者 ${patient.name} 生成向量: ${patientVectorRecord.id}`);
     });
   }
 
@@ -314,35 +312,32 @@ async function generateKnowledgeDocuments() {
   const documents = readKnowledgeDocuments();
   const createdDocuments = [];
   
+  // 先创建所有知识文档
   for (const document of documents) {
     const createdDoc = await prisma.knowledgeDocument.create({
       data: document
     });
     createdDocuments.push(createdDoc);
+    console.log(`创建知识文档: ${createdDoc.title}`);
   }
   
   console.log(`已插入 ${createdDocuments.length} 个知识文档`);
 
+  // 为每个知识文档生成向量（使用真实的嵌入模型）
   for (const document of createdDocuments) {
-    const documentVector = generateRandomVector(1536);
-    const vectorData = {
-      sourceType: 'knowledge',
-      sourceId: document.id.toString(),
-      knowledgeDocumentId: document.id,
+    const knowledgeVectorRecord = await vectorService.storeKnowledgeVector({
+      documentId: document.id,
+      content: document.content,
       title: document.title,
-      content: document.content.substring(0, 500),
-      vector: documentVector,
-      contentType: 'knowledge_base',
-      tags: document.tags,
       metadata: {
         documentId: document.id,
         category: document.category,
-        source: document.source
-      },
-      relevance: Mock.Random.float(0, 1, 2, 2)
-    };
-
-    await prisma.vectorStore.create({ data: vectorData });
+        source: document.source,
+        tags: document.tags
+      }
+    });
+    
+    console.log(`为知识文档 ${document.title} 生成向量: ${knowledgeVectorRecord.id}`);
   }
   
   console.log(`已为 ${createdDocuments.length} 个知识文档生成向量数据`);
@@ -377,10 +372,12 @@ async function init() {
     console.log(`数据库中现有知识文档数量: ${knowledgeDocCount}`);
     console.log(`数据库中现有向量数据数量: ${vectorCount}`);
 
+    await vectorService.disconnect();
     await prisma.$disconnect();
     console.log("数据库连接已关闭");
   } catch (error) {
     console.error("数据生成过程中出现错误:", error);
+    await vectorService.disconnect();
     await prisma.$disconnect();
     process.exit(1);
   }

@@ -13,15 +13,21 @@
   "devDependencies": {
     "mockjs": "^1.1.0",
     "nodemon": "^3.1.10",
-    "prisma": "^6.7.0"
+    "prisma": "^6.19.2"
   },
   "dependencies": {
     "@koa/router": "^13.1.0",
-    "@prisma/client": "^6.7.0",
-    "dotenv": "^16.5.0",
+    "@langchain/community": "^1.1.23",
+    "@langchain/core": "^1.1.32",
+    "@langchain/langgraph": "^1.2.2",
+    "@langchain/openai": "^1.2.13",
+    "@prisma/client": "^6.19.2",
+    "dotenv": "^16.6.1",
     "koa": "^3.0.0",
     "koa-bodyparser": "^4.4.1",
+    "koa-session": "^7.0.2",
     "koa-static": "^5.0.0",
+    "langchain": "^1.2.31",
     "openai": "^4.98.0"
   }
 }
