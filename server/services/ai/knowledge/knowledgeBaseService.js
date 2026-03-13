@@ -1,9 +1,8 @@
 import VectorService from '../vector/vectorService.js';
-import { PrismaClient } from '../../../generated/prisma/index.js';
+import prisma from '../../../prisma/index.js';
 import fs from 'fs/promises';
 import path from 'path';
 
-const prisma = new PrismaClient();
 const vectorService = new VectorService();
 
 class KnowledgeBaseService {

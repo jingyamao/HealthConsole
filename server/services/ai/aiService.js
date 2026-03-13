@@ -1,7 +1,7 @@
 import VectorService from './vector/vectorService.js';
 import KnowledgeBaseService from './knowledge/knowledgeBaseService.js';
 import { aliyunEmbeddings } from './embedding/aliyunEmbedding.js';
-import KIMIChatService from './chat/kimiChat.js';
+import KIMIChatService from './chat/aiChat.js';
 
 /**
  * AI 主服务 - 整合所有 AI 功能

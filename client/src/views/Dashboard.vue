@@ -22,6 +22,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Menu } from '@element-plus/icons-vue'
 import HeaderNav from '@/components/headerNav.vue'
+import vue from 'eslint-plugin-vue'
 
 const isMenuCollapsed = ref(false)
 

@@ -1,23 +1,18 @@
 import Router from "@koa/router";
-import UserController from "../controller/user.js";
+import * as userController from "../controller/user.js";
 
-const router = new Router({
-  prefix: "/user"
-});
-
-const userController = new UserController();
+const router = new Router();
 
 /**
  * 用户登录接口
- * POST /user/login
- * 接受参数: userId, userName
+ * POST /api/user/login
  */
-router.post("/login", userController.login.bind(userController));
+router.post("/login", userController.login);
 
 /**
  * 用户登出接口
- * POST /user/logout
+ * POST /api/user/logout
  */
-router.post("/logout", userController.logout.bind(userController));
+router.post("/logout", userController.logout);
 
 export default router;

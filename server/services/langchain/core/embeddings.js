@@ -14,5 +14,6 @@ export const aliyunEmbeddings = new OpenAIEmbeddings({
   stripNewLines: true,  // 移除换行符
 });
 
-// 阿里云目前主要提供 text-embedding-v2 模型
-export const aliyunTextEmbedding = aliyunEmbeddings;
+// text-embedding-v2 模型
+export const defaultEmbeddings = aliyunEmbeddings;
+

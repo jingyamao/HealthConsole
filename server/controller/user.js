@@ -1,6 +1,4 @@
-import UserModel from "../model/user.js";
-
-const userModel = new UserModel();
+import * as userModel from "../model/user.js";
 
 /**
  * 用户登录
@@ -16,10 +14,7 @@ export async function login(ctx) {
       ctx.status = 400;
       ctx.body = {
         success: false,
-        error: {
-          code: 'INVALID_USER_ID',
-          message: '用户ID不能为空且必须是字符串'
-        }
+        error: { code: 'INVALID_USER_ID', message: '用户ID不能为空且必须是字符串' }
       };
       return;
     }
@@ -28,36 +23,7 @@ export async function login(ctx) {
       ctx.status = 400;
       ctx.body = {
         success: false,
-        error: {
-          code: 'INVALID_USER_NAME',
-          message: '用户名不能为空且必须是字符串'
-        }
-      };
-      return;
-    }
-
-    // 验证用户ID格式
-    if (userId.length < 3 || userId.length > 50) {
-      ctx.status = 400;
-      ctx.body = {
-        success: false,
-        error: {
-          code: 'INVALID_USER_ID_LENGTH',
-          message: '用户ID长度必须在3-50个字符之间'
-        }
-      };
-      return;
-    }
-
-    // 验证用户名格式
-    if (userName.length < 2 || userName.length > 100) {
-      ctx.status = 400;
-      ctx.body = {
-        success: false,
-        error: {
-          code: 'INVALID_USER_NAME_LENGTH',
-          message: '用户名长度必须在2-100个字符之间'
-        }
+        error: { code: 'INVALID_USER_NAME', message: '用户名不能为空且必须是字符串' }
       };
       return;
     }
@@ -72,28 +38,18 @@ export async function login(ctx) {
 
     if (existingUser.success && existingUser.data) {
       // 用户已存在，更新最后活跃时间
-      const updateResult = await userModel.updateLastActiveTime(userId);
-      if (!updateResult.success) {
-        console.warn('⚠️ 更新用户活跃时间失败:', updateResult.error);
-      }
+      await userModel.updateLastActiveTime(userId);
       user = existingUser.data;
       console.log('✅ 用户登录成功（已存在用户）:', user);
     } else {
       // 用户不存在，创建新用户
-      const createResult = await userModel.createUser({
-        userId,
-        userName
-      });
+      const createResult = await userModel.createUser({ userId, userName });
 
       if (!createResult.success) {
         ctx.status = 500;
         ctx.body = {
           success: false,
-          error: {
-            code: 'USER_CREATION_FAILED',
-            message: '用户创建失败',
-            details: createResult.error
-          }
+          error: { code: 'USER_CREATION_FAILED', message: '用户创建失败', details: createResult.error }
         };
         return;
       }
@@ -108,7 +64,6 @@ export async function login(ctx) {
     ctx.session.userId = user.userId;
     ctx.session.userName = user.userName;
     ctx.session.loginTime = new Date().toISOString();
-    ctx.session.isNewUser = isNewUser;
 
     // 返回成功响应
     ctx.body = {
@@ -125,12 +80,7 @@ export async function login(ctx) {
         session: {
           userId: ctx.session.userId,
           userName: ctx.session.userName,
-          loginTime: ctx.session.loginTime,
-          isNewUser: isNewUser
-        },
-        metadata: {
-          isNewUser: isNewUser,
-          timestamp: new Date().toISOString()
+          loginTime: ctx.session.loginTime
         }
       }
     };
@@ -140,11 +90,7 @@ export async function login(ctx) {
     ctx.status = 500;
     ctx.body = {
       success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: '服务器内部错误',
-        details: error.message
-      }
+      error: { code: 'INTERNAL_SERVER_ERROR', message: error.message }
     };
   }
 }
@@ -179,11 +125,7 @@ export async function logout(ctx) {
     ctx.status = 500;
     ctx.body = {
       success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: '服务器内部错误',
-        details: error.message
-      }
+      error: { code: 'INTERNAL_SERVER_ERROR', message: error.message }
     };
   }
 }
