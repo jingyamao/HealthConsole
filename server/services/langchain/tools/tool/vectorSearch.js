@@ -307,12 +307,79 @@ export const addDocumentTool = new DynamicStructuredTool({
   }
 });
 
+/**
+ * 获取知识库列表工具
+ * 用于列举知识库中的所有文档
+ */
+export const listKnowledgeBaseTool = new DynamicStructuredTool({
+  name: "list_knowledge_base",
+  description: `获取知识库中的所有文档列表和统计信息。
+适用于：用户询问"知识库有哪些内容"、"知识库里有什么"、"列举所有文档"等场景。
+返回知识库中文档的标题列表、数量统计等信息。`,
+  schema: z.object({
+    includeContent: z.boolean().default(false).describe("是否包含文档内容摘要，默认false只返回标题列表")
+  }),
+  func: async ({ includeContent = false }) => {
+    try {
+      console.log("📋 获取知识库列表...");
+
+      // 获取统计信息
+      const stats = await vectorService.getKnowledgeBaseStats();
+      console.log("📊 知识库统计:", stats);
+
+      // 获取文档列表
+      const documents = await vectorService.getAllKnowledgeDocuments({ limit: 100 });
+
+      // 去重，按标题分组
+      const uniqueDocs = [];
+      const seenTitles = new Set();
+
+      for (const doc of documents) {
+        if (doc.title && !seenTitles.has(doc.title)) {
+          seenTitles.add(doc.title);
+          uniqueDocs.push({
+            title: doc.title,
+            contentType: doc.contentType,
+            tags: doc.tags,
+            content: includeContent && doc.content ? doc.content.substring(0, 200) + '...' : undefined
+          });
+        }
+      }
+
+      console.log(`✅ 获取到 ${uniqueDocs.length} 个知识文档`);
+
+      return JSON.stringify({
+        success: true,
+        totalDocuments: uniqueDocs.length,
+        totalVectors: stats.totalKnowledge,
+        message: `知识库中共有 ${uniqueDocs.length} 个文档，${stats.totalKnowledge} 条向量记录`,
+        documents: uniqueDocs.map((doc, index) => ({
+          index: index + 1,
+          title: doc.title,
+          type: doc.contentType || '知识文档',
+          tags: doc.tags || [],
+          preview: doc.content
+        }))
+      });
+
+    } catch (error) {
+      console.error("❌ 获取知识库列表失败:", error);
+      return JSON.stringify({
+        success: false,
+        error: error.message,
+        message: "获取知识库列表失败"
+      });
+    }
+  }
+});
+
 // 导出所有向量搜索相关工具
 export const vectorTools = [
   vectorSearchTool,
   patientCaseSearchTool,
   knowledgeBaseSearchTool,
-  addDocumentTool
+  addDocumentTool,
+  listKnowledgeBaseTool
 ];
 
 export default vectorSearchTool;

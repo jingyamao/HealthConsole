@@ -55,23 +55,33 @@ function validateIntentType(intent) {
 function fallbackIntentRecognition(message) {
   const messageLower = message.toLowerCase();
 
-  // 数据库查询关键词
-  const dbKeywords = ['查询', '查找', '有哪些', '统计', '列出', '搜索患者', '筛选', '找出'];
-  if (dbKeywords.some(keyword => messageLower.includes(keyword))) {
+  // 数据库查询关键词 - 更具体的患者数据查询
+  const dbKeywords = ['患者', '病人', '病例', '张三', '李四', '统计', '筛选', '找出'];
+  const dbContextKeywords = ['查询患者', '查找病人', '统计病例', '筛选患者'];
+  
+  // 只有当明确提到患者/病人相关查询时才使用数据库查询
+  if (dbContextKeywords.some(keyword => messageLower.includes(keyword)) ||
+      (dbKeywords.some(keyword => messageLower.includes(keyword)) && 
+       (messageLower.includes('查询') || messageLower.includes('查找')))) {
     return {
       intent: INTENT_TYPES.DATABASE_QUERY,
       confidence: 0.7,
-      reasoning: '检测到数据库查询相关关键词'
+      reasoning: '检测到患者数据查询相关关键词'
     };
   }
 
-  // 向量搜索关键词
-  const vectorKeywords = ['相似', '相关知识', '文档', '指南', '病例', '类似', '知识库', '资料'];
-  if (vectorKeywords.some(keyword => messageLower.includes(keyword))) {
+  // 向量搜索关键词 - 更广泛的知识搜索
+  const vectorKeywords = ['文档', '指南', '知识库', '资料', '相似', '类似', '相关知识', '搜索', '查找'];
+  const vectorContextKeywords = ['诊疗指南', '知识文档', '相似病例', '相关文档'];
+  
+  // 如果涉及知识搜索但未明确提到患者查询，使用向量搜索
+  if (vectorContextKeywords.some(keyword => messageLower.includes(keyword)) ||
+      (vectorKeywords.some(keyword => messageLower.includes(keyword)) && 
+       !messageLower.includes('患者') && !messageLower.includes('病人'))) {
     return {
       intent: INTENT_TYPES.VECTOR_SEARCH,
       confidence: 0.7,
-      reasoning: '检测到向量搜索相关关键词'
+      reasoning: '检测到知识库搜索相关关键词'
     };
   }
 
@@ -101,24 +111,38 @@ export const intentRecognitionTool = new DynamicStructuredTool({
         请将用户意图分类为以下四种类型之一：
 
         1. **database_query** (数据库查询)
-        - 用户想要查询数据库中的信息
-        - 典型关键词："查询", "查找", "有哪些", "统计", "列出", "搜索患者", "筛选"
-        - 示例："帮我查一下有哪些患者住在北京", "糖尿病患者有多少人"
+        - 用户明确要求查询数据库中的结构化数据
+        - 典型场景：查询具体患者信息、统计患者数量、筛选特定条件的患者
+        - 关键特征：包含具体查询条件（如姓名、年龄、疾病类型、住址等）
+        - 示例："帮我查一下张三的病例信息", "统计糖尿病患者数量", "找出住在北京的患者"
+        - 注意：如果只是查询知识文档、诊疗指南等非结构化信息，应归类为向量搜索
 
         2. **medical_chat** (普通医疗对话)
         - 用户询问医疗健康问题、寻求医疗建议
-        - 典型关键词："症状", "治疗", "药物", "疾病", "诊断", "预防", "建议"
+        - 典型场景：症状咨询、治疗方案、药物使用、疾病预防
+        - 关键特征：不涉及具体的数据查询，主要是医疗知识咨询
         - 示例："我最近总是头痛，可能是什么原因", "高血压应该如何治疗"
 
         3. **vector_search** (向量搜索)
         - 用户想要搜索知识库、查找相似病例或医疗文档
-        - 典型关键词："相似", "相关知识", "文档", "指南", "病例", "类似", "知识库"
-        - 示例："查找与这个症状相似的病例", "搜索相关的诊疗指南"
+        - 典型场景：查询知识文档、诊疗指南、相似病例、医疗资料
+        - 关键特征：涉及非结构化信息的搜索，如文档、指南、知识库内容
+        - 示例："查找高血压的诊疗指南", "搜索与这个症状相似的病例"
+        - 特别注意：以下情况应归类为向量搜索：
+           - 查询知识文档、诊疗指南等
+           - 查找相似病例或症状
+           - 搜索医疗知识库内容
+           - 查询与某患者住址相同的问题（这是知识库搜索，不是数据库查询）
 
         4. **other** (其他功能)
         - 不属于以上三类的其他话题
         - 包括：闲聊、问候、非医疗问题等
         - 示例："你好", "今天天气怎么样", "谢谢"
+
+        **重要判断原则：**
+        - 如果用户的问题涉及查询具体患者的数据（如姓名、ID、具体病例），使用数据库查询
+        - 如果用户的问题涉及搜索知识、文档、指南、相似病例等非结构化信息，使用向量搜索
+        - 如果用户只是咨询医疗问题，不涉及数据查询，使用医疗对话
 
         **输出格式（必须严格返回JSON）：**
         {"intent": "意图类型", "confidence": 0.95, "reasoning": "分类理由说明"}`;

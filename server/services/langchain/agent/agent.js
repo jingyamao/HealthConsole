@@ -9,6 +9,8 @@ import {
   medicalChatTool,
   intentRecognitionTool,
   vectorSearchTool,
+  databaseQueryTool,
+  listKnowledgeBaseTool,
 } from "../tools/index.js";
 
 /**
@@ -93,7 +95,7 @@ export class AgentManager {
   }
 
   /**
-   * 执行对话 - 强制先调用意图识别，再根据结果执行相应操作
+   * 执行对话 - 智能分析用户意图，灵活调用工具
    * @param {string} input - 用户输入
    * @returns {Promise<Object>} 执行结果
    */
@@ -101,37 +103,90 @@ export class AgentManager {
     try {
       console.log("🤖 Agent 执行:", input);
 
-      // 步骤 1: 强制调用意图识别工具
-      console.log("🎯 步骤 1: 调用意图识别工具...");
+      // 步骤 1: 使用LLM分析用户对话，理解真实意图
+      console.log("🧠 步骤 1: LLM分析用户意图...");
+      const analysisPrompt = `请分析用户的这条消息，理解用户的真实意图：
+        用户消息："${input}"
+
+        请从以下角度分析：
+        1. 用户是在询问医疗健康问题，还是在进行系统操作（如查询数据、搜索知识库）？
+        2. 用户的真实需求是什么？
+        3. 用户是否在纠正之前的误解或澄清需求？
+        4. 最适合使用哪种工具来回应？
+
+        可选工具：
+        - medical_chat: 回答医疗健康咨询问题
+        - vector_search: 搜索知识库、查找诊疗指南、相似病例等
+        - database_query: 查询数据库中的患者信息、统计数据等
+
+        请以JSON格式返回分析结果：
+        {
+          "userIntent": "用户的真实意图描述",
+          "suggestedTool": "推荐的工具",
+          "reasoning": "分析理由",
+          "confidence": 0.9
+        }`;
+
+      const analysisResult = await this.llm.invoke([
+        { role: "system", content: "你是一位智能对话分析专家，擅长理解用户的真实意图。" },
+        { role: "user", content: analysisPrompt }
+      ]);
+
+      let llmAnalysis;
+      try {
+        const jsonMatch = analysisResult.content.match(/\{[\s\S]*\}/);
+        llmAnalysis = JSON.parse(jsonMatch ? jsonMatch[0] : analysisResult.content);
+      } catch (e) {
+        llmAnalysis = {
+          userIntent: "医疗咨询",
+          suggestedTool: "medical_chat",
+          reasoning: "解析失败，默认医疗对话",
+          confidence: 0.5
+        };
+      }
+      console.log("🧠 LLM分析结果:", llmAnalysis);
+
+      // 步骤 2: 调用意图识别工具进行确认和细化
+      console.log("🎯 步骤 2: 调用意图识别工具确认...");
       const intentResult = await intentRecognitionTool.invoke({
         message: input,
       });
       console.log("🎯 意图识别结果:", intentResult);
 
-      let intent;
+      let toolIntent;
       try {
-        intent = JSON.parse(intentResult);
+        toolIntent = JSON.parse(intentResult);
       } catch (e) {
-        intent = {
+        toolIntent = {
           intent: "medical_chat",
           confidence: 0.5,
           reasoning: "解析失败，默认医疗对话",
         };
       }
 
-      // 步骤 2: 根据意图类型决定如何处理
+      // 步骤 3: 综合LLM分析和工具识别结果，做出最终决策
+      console.log("⚖️ 步骤 3: 综合决策...");
+      let finalDecision = this.makeDecision(llmAnalysis, toolIntent, input);
+      console.log("⚖️ 最终决策:", finalDecision);
+
+      // 步骤 4: 根据最终决策执行相应操作
       let output;
       let intermediateSteps = [
         {
+          tool: "llm_analysis",
+          input: { message: input },
+          output: llmAnalysis,
+        },
+        {
           tool: "intent_recognition",
           input: { message: input },
-          output: intent,
+          output: toolIntent,
         },
       ];
 
-      switch (intent.intent) {
+      switch (finalDecision.action) {
         case "medical_chat":
-          console.log("🏥 步骤 2: 意图为医疗对话，调用医疗对话工具...");
+          console.log("🏥 步骤 4: 执行医疗对话...");
           const medicalResult = await medicalChatTool.invoke({ query: input });
           output = medicalResult;
           intermediateSteps.push({
@@ -142,62 +197,67 @@ export class AgentManager {
           break;
 
         case "database_query":
-          console.log("🗄️ 步骤 2: 意图为数据库查询");
-          output = `【意图识别结果】\n类型: 数据库查询\n置信度: ${intent.confidence}\n理由: ${intent.reasoning}\n\n抱歉，数据库查询功能暂未实现。请尝试询问医疗健康问题，或使用向量搜索功能查找相关知识。`;
+          console.log("🗄️ 步骤 4: 执行数据库查询...");
+          try {
+            const dbResult = await databaseQueryTool.invoke({
+              query: input,
+              context: `用户意图：${finalDecision.reasoning}`
+            });
+            const parsedResult = JSON.parse(dbResult);
+
+            if (parsedResult.success) {
+              output = parsedResult.answer;
+              intermediateSteps.push({
+                tool: 'database_query',
+                input: { query: input },
+                output: {
+                  queryPlan: parsedResult.queryPlan,
+                  rawData: parsedResult.rawData
+                }
+              });
+            } else {
+              output = `抱歉，数据库查询失败：${parsedResult.error}。让我直接为您解答。`;
+              intermediateSteps.push({ tool: 'database_query', input: { query: input }, output: parsedResult });
+            }
+          } catch (error) {
+            console.error("❌ 数据库查询执行失败:", error);
+            output = `抱歉，数据库查询执行失败：${error.message}。让我直接为您解答。`;
+            const fallbackResult = await medicalChatTool.invoke({ query: input });
+            output += fallbackResult;
+            intermediateSteps.push({ tool: 'medical_chat', input: { query: input }, output: fallbackResult });
+          }
           break;
 
         case "vector_search":
-          console.log("🔍 步骤 2: 意图为向量搜索，调用向量搜索工具...");
+          console.log("🔍 步骤 4: 执行向量搜索...");
           try {
-            console.log("🔍 正在调用 vectorSearchTool.invoke...");
             const vectorResult = await vectorSearchTool.invoke({
-              query: input,
+              query: finalDecision.searchQuery || input,
               limit: 5,
               minRelevance: 0.3,
             });
-            console.log(
-              "🔍 向量搜索工具返回结果:",
-              vectorResult.substring(0, 200)
-            );
 
             const parsedResult = JSON.parse(vectorResult);
-            console.log("🔍 解析后的结果:", {
-              success: parsedResult.success,
-              resultCount: parsedResult.resultCount,
-            });
 
             if (parsedResult.success && parsedResult.resultCount > 0) {
-              console.log("🤖 步骤 3: 调用医疗对话工具整理搜索结果...");
+              console.log("🤖 步骤 5: 整理搜索结果...");
 
-              // 构建搜索结果摘要
               const searchSummary = parsedResult.results
-                .map(
-                  (r, i) =>
-                    `[${i + 1}] ${r.title} (相似度: ${(
-                      r.similarity * 100
-                    ).toFixed(1)}%)\n内容: ${r.content}`
-                )
+                .map((r, i) => `[${i + 1}] ${r.title}\n内容: ${r.content}`)
                 .join("\n\n");
 
-              // 调用医疗对话工具整理搜索结果
-              const organizePrompt = `用户问题："${input}"\n\n从知识库中搜索到以下内容：\n\n${searchSummary}\n\n请基于以上搜索结果，为用户提供一个专业、准确、易懂的医疗知识回答。要求：\n1. 整合搜索结果中的关键信息\n2. 使用通俗易懂的语言解释\n3. 提供实用的建议或指导\n4. 提醒用户这些信息仅供参考，不能替代专业医生诊断\n5. 如果症状严重或持续，建议及时就医`;
+              const organizePrompt = `用户问题："${input}"
+
+从知识库中找到以下内容：
+${searchSummary}
+
+请用自然、友好的方式回答用户的问题。`;
 
               const organizedResponse = await medicalChatTool.invoke({
                 query: organizePrompt,
               });
 
-              output = `【意图识别结果】\n类型: 向量搜索\n置信度: ${
-                intent.confidence
-              }\n理由: ${
-                intent.reasoning
-              }\n\n【搜索结果整理】\n${organizedResponse}\n\n---\n📚 参考来源：\n${parsedResult.results
-                .map(
-                  (r, i) =>
-                    `${i + 1}. ${r.title} (相似度: ${(
-                      r.similarity * 100
-                    ).toFixed(1)}%)`
-                )
-                .join("\n")}`;
+              output = organizedResponse;
 
               intermediateSteps.push({
                 tool: "vector_search",
@@ -210,7 +270,22 @@ export class AgentManager {
                 output: organizedResponse,
               });
             } else {
-              output = `【意图识别结果】\n类型: 向量搜索\n置信度: ${intent.confidence}\n理由: ${intent.reasoning}\n\n【搜索结果】\n${parsedResult.message}\n\n建议：您可以尝试使用其他关键词，或询问具体的医疗健康问题，我可以直接为您解答。`;
+              // 搜索无结果时，使用LLM生成更友好的回复
+              const noResultPrompt = `用户问："${input}"
+
+我在知识库中没有找到完全匹配的内容。请用友好、自然的方式告诉用户，并询问用户是否需要：
+1. 换个方式描述问题
+2. 询问其他医疗健康问题
+3. 直接获得一般性的医疗建议
+
+请给出简洁、有帮助的回复。`;
+
+              const noResultResponse = await this.llm.invoke([
+                { role: "system", content: "你是一位友好的医疗助手。" },
+                { role: "user", content: noResultPrompt }
+              ]);
+
+              output = noResultResponse.content;
               intermediateSteps.push({
                 tool: "vector_search",
                 input: { query: input },
@@ -219,14 +294,9 @@ export class AgentManager {
             }
           } catch (error) {
             console.error("❌ 向量搜索执行失败:", error);
-            console.error("错误堆栈:", error.stack);
-            output = `【意图识别结果】\n类型: 向量搜索\n置信度: ${intent.confidence}\n理由: ${intent.reasoning}\n\n抱歉，向量搜索执行失败: ${error.message}。让我直接为您解答相关问题。\n\n`;
-
-            // 如果向量搜索失败，回退到医疗对话
-            const fallbackResult = await medicalChatTool.invoke({
-              query: input,
-            });
-            output += fallbackResult;
+            output = `抱歉，搜索时出现了问题。让我直接为您解答：${input}`;
+            const fallbackResult = await medicalChatTool.invoke({ query: input });
+            output = fallbackResult;
             intermediateSteps.push({
               tool: "medical_chat",
               input: { query: input },
@@ -235,22 +305,55 @@ export class AgentManager {
           }
           break;
 
-        case "other":
-          console.log("💬 步骤 2: 意图为其他对话");
-          // 对于其他意图，直接调用 LLM 进行一般性对话
-          const generalResponse = await this.llm.invoke([
-            {
-              role: "system",
-              content:
-                "你是一位友好的医疗助手。如果用户不是询问医疗问题，请礼貌地回应，并引导用户询问医疗健康相关问题。",
-            },
-            { role: "user", content: input },
-          ]);
-          output = generalResponse.content;
+        case "list_knowledge_base":
+          console.log("📋 步骤 4: 获取知识库列表...");
+          try {
+            const listResult = await listKnowledgeBaseTool.invoke({
+              includeContent: false
+            });
+            const parsedList = JSON.parse(listResult);
+
+            if (parsedList.success) {
+              // 使用LLM整理知识库列表，生成友好的回复
+              const listPrompt = `用户问："${input}"
+
+知识库中有以下内容：
+${parsedList.documents.map(d => `${d.index}. ${d.title} (${d.type})`).join('\n')}
+
+请用友好、自然的方式告诉用户知识库中有哪些内容，并简要说明这些文档的用途。`;
+
+              const listResponse = await this.llm.invoke([
+                { role: "system", content: "你是一位友好的医疗助手，正在介绍知识库内容。" },
+                { role: "user", content: listPrompt }
+              ]);
+
+              output = listResponse.content;
+              intermediateSteps.push({
+                tool: "list_knowledge_base",
+                input: { includeContent: false },
+                output: parsedList,
+              });
+            } else {
+              output = "抱歉，获取知识库列表时出现了问题。";
+              intermediateSteps.push({
+                tool: "list_knowledge_base",
+                input: { includeContent: false },
+                output: parsedList,
+              });
+            }
+          } catch (error) {
+            console.error("❌ 获取知识库列表失败:", error);
+            output = "抱歉，获取知识库列表时出现了错误。";
+          }
+          break;
+
+        case "direct_response":
+          console.log("💬 步骤 4: 直接回复...");
+          output = finalDecision.response;
           break;
 
         default:
-          console.log("🏥 步骤 2: 默认使用医疗对话");
+          console.log("🏥 步骤 4: 默认医疗对话...");
           const defaultResult = await medicalChatTool.invoke({ query: input });
           output = defaultResult;
           intermediateSteps.push({
@@ -279,6 +382,75 @@ export class AgentManager {
       return {
         success: false,
         error: error.message,
+      };
+    }
+  }
+
+  /**
+   * 综合LLM分析和工具识别结果，做出最终决策
+   * @param {Object} llmAnalysis - LLM分析结果
+   * @param {Object} toolIntent - 工具意图识别结果
+   * @param {string} input - 用户原始输入
+   * @returns {Object} 最终决策
+   */
+  makeDecision(llmAnalysis, toolIntent, input) {
+    const inputLower = input.toLowerCase();
+
+    // 特殊情况：用户明确纠正或澄清需求
+    if (inputLower.includes('不是') || inputLower.includes('错了') || inputLower.includes('我说的是')) {
+      // 优先使用LLM的分析，因为用户可能在纠正
+      if (llmAnalysis.suggestedTool === 'vector_search' || llmAnalysis.suggestedTool === 'database_query') {
+        return {
+          action: llmAnalysis.suggestedTool,
+          reasoning: `用户纠正：${llmAnalysis.reasoning}`,
+          searchQuery: llmAnalysis.userIntent
+        };
+      }
+    }
+
+    // 用户询问知识库内容列表（列举所有文档）
+    if (inputLower.includes('知识库') && 
+        (inputLower.includes('有哪些') || inputLower.includes('有什么') || 
+         inputLower.includes('列表') || inputLower.includes('所有') || 
+         inputLower.includes('内容') || inputLower.includes('文档'))) {
+      return {
+        action: 'list_knowledge_base',
+        reasoning: '用户想查看知识库中的所有文档列表'
+      };
+    }
+
+    // 用户询问患者/数据库信息
+    if (inputLower.includes('患者') || inputLower.includes('病人') || inputLower.includes('统计')) {
+      return {
+        action: 'database_query',
+        reasoning: '用户想查询患者数据'
+      };
+    }
+
+    // 综合置信度判断
+    if (llmAnalysis.confidence >= 0.7 && toolIntent.confidence >= 0.7) {
+      // 两者都高置信度，优先使用LLM的判断（更理解上下文）
+      return {
+        action: llmAnalysis.suggestedTool,
+        reasoning: `LLM分析：${llmAnalysis.reasoning}`
+      };
+    } else if (llmAnalysis.confidence >= 0.7) {
+      // 只有LLM高置信度
+      return {
+        action: llmAnalysis.suggestedTool,
+        reasoning: `LLM分析：${llmAnalysis.reasoning}`
+      };
+    } else if (toolIntent.confidence >= 0.7) {
+      // 只有工具高置信度
+      return {
+        action: toolIntent.intent,
+        reasoning: `工具识别：${toolIntent.reasoning}`
+      };
+    } else {
+      // 都低置信度，默认医疗对话
+      return {
+        action: 'medical_chat',
+        reasoning: '置信度较低，默认医疗对话'
       };
     }
   }

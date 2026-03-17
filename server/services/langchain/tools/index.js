@@ -1,11 +1,13 @@
 // 导入所有工具
 import { medicalChatTool } from "./tool/medicalChat.js";
 import { intentRecognitionTool } from "./tool/intentRecognition.js";
+import { databaseQueryTool } from "./tool/databaseQuery.js";
 import {
   vectorSearchTool,
   patientCaseSearchTool,
   knowledgeBaseSearchTool,
   addDocumentTool,
+  listKnowledgeBaseTool,
   vectorTools
 } from "./tool/vectorSearch.js";
 
@@ -13,10 +15,12 @@ import {
 export {
   medicalChatTool,
   intentRecognitionTool,
+  databaseQueryTool,
   vectorSearchTool,
   patientCaseSearchTool,
   knowledgeBaseSearchTool,
   addDocumentTool,
+  listKnowledgeBaseTool,
   vectorTools
 };
 
@@ -24,7 +28,9 @@ export {
 export const activeTools = [
   intentRecognitionTool,  // 意图识别
   medicalChatTool,        // 医疗对话
-  vectorSearchTool        // 向量搜索（通用）
+  vectorSearchTool,       // 向量搜索
+  databaseQueryTool,      // 数据库查询
+  listKnowledgeBaseTool   // 知识库列表
 ];
 
 // 所有可用的向量工具
@@ -32,5 +38,6 @@ export const availableVectorTools = [
   vectorSearchTool,
   patientCaseSearchTool,
   knowledgeBaseSearchTool,
-  addDocumentTool
+  addDocumentTool,
+  listKnowledgeBaseTool
 ];

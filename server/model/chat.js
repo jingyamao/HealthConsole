@@ -108,20 +108,16 @@ export async function saveMessage(conversationId, userId, role, content) {
 /**
  * 获取会话的聊天记录
  * @param {string} conversationId - 会话ID
- * @param {number} limit - 限制条数
  * @returns {Promise<Array>} - 消息列表
  */
-export async function getChatHistory(conversationId, limit = 50) {
+export async function getChatHistory(conversationId) {
   try {
     const messages = await prisma.message.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'asc' },
-      take: limit,
       select: {
-        id: true,
         role: true,
         content: true,
-        createdAt: true
       }
     });
 
@@ -129,6 +125,31 @@ export async function getChatHistory(conversationId, limit = 50) {
   } catch (error) {
     console.error('❌ 获取聊天记录失败:', error);
     return [];
+  }
+}
+
+/**
+ * 根据ID获取会话信息
+ * @param {string} conversationId - 会话ID
+ * @returns {Promise<Object|null>} - 会话信息
+ */
+export async function getConversationById(conversationId) {
+  try {
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    return conversation;
+  } catch (error) {
+    console.error('❌ 获取会话信息失败:', error);
+    return null;
   }
 }
 

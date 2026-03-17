@@ -75,7 +75,7 @@ class VectorService {
   /**
    * 存储知识文档向量数据 
    * @param {Object} params - 参数对象
-   * @param {number} params.documentId - 知识文档ID
+   * @param {string} params.documentId - 知识文档ID（字符串）
    * @param {string} params.content - 内容
    * @param {string} params.title - 标题
    * @param {Object} [params.metadata] - 元数据
@@ -88,7 +88,7 @@ class VectorService {
       data: {
         sourceType: 'knowledge',
         sourceId: documentId.toString(),
-        knowledgeDocumentId: documentId,
+        knowledgeDocumentId: null, // 不关联到 KnowledgeDocument 表
         title: title,
         content: content,
         vector: vector, // 直接存储为 JSON 数组，适配数据库的 Json 类型
@@ -348,6 +348,79 @@ class VectorService {
   }
 
   /**
+   * 获取所有知识库文档列表
+   * @param {Object} options - 选项
+   * @param {number} options.limit - 返回数量限制
+   * @returns {Promise<Array>} - 知识库文档列表
+   */
+  async getAllKnowledgeDocuments(options = {}) {
+    const { limit = 100 } = options;
+    
+    try {
+      const documents = await prisma.vectorStore.findMany({
+        where: {
+          sourceType: 'knowledge'
+        },
+        select: {
+          id: true,
+          sourceId: true,
+          title: true,
+          content: true,
+          contentType: true,
+          tags: true,
+          metadata: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: limit
+      });
+      
+      return documents;
+    } catch (error) {
+      console.error('❌ 获取知识库文档列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取知识库统计信息
+   * @returns {Promise<Object>} - 统计信息
+   */
+  async getKnowledgeBaseStats() {
+    try {
+      const knowledgeCount = await prisma.vectorStore.count({
+        where: { sourceType: 'knowledge' }
+      });
+      
+      const patientCount = await prisma.vectorStore.count({
+        where: { sourceType: 'patient' }
+      });
+      
+      // 获取所有知识文档的标题
+      const knowledgeDocs = await prisma.vectorStore.findMany({
+        where: { sourceType: 'knowledge' },
+        select: { title: true },
+        distinct: ['title']
+      });
+      
+      return {
+        totalKnowledge: knowledgeCount,
+        totalPatients: patientCount,
+        knowledgeTitles: knowledgeDocs.map(d => d.title).filter(Boolean)
+      };
+    } catch (error) {
+      console.error('❌ 获取知识库统计失败:', error);
+      return {
+        totalKnowledge: 0,
+        totalPatients: 0,
+        knowledgeTitles: []
+      };
+    }
+  }
+
+  /**
    * 关闭数据库连接
    */
   async disconnect() {
@@ -358,10 +431,10 @@ class VectorService {
 // 创建默认实例
 const vectorService = new VectorService();
 
-// 导出 VectorStore 类（兼容旧代码）
+// 导出 VectorStore 类
 export const VectorStore = VectorService;
 
-// 导出获取实例的函数（兼容旧代码）
+// 导出获取实例的函数
 export function getVectorStore() {
   return vectorService;
 }

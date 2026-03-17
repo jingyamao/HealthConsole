@@ -104,7 +104,21 @@ const router = createRouter({
 
 // 全局路由守卫
 router.beforeEach((to, from, next) => {
-  next()
+  const userInfo = localStorage.getItem('userInfo')
+  
+  // 如果路由需要认证
+  if (to.meta.requiresAuth) {
+    if (!userInfo) {
+      // 没有用户信息，重定向到登录页
+      next('/login')
+    } else {
+      // 有用户信息，允许访问
+      next()
+    }
+  } else {
+    // 不需要认证的路由，直接访问
+    next()
+  }
 })
 
 export default router

@@ -37,7 +37,17 @@ export async function login(ctx) {
     let isNewUser = false;
 
     if (existingUser.success && existingUser.data) {
-      // 用户已存在，更新最后活跃时间
+      // 用户已存在，验证用户名是否匹配
+      if (existingUser.data.userName !== userName) {
+        ctx.body = {
+          success: false,
+          data: { code: 'INVALID_USER_NAME', message: '用户名与已注册用户不匹配' }
+        };
+        console.log('❌ 登录失败：用户名不匹配', { userId, expected: existingUser.data.userName, received: userName });
+        return;
+      }
+
+      // 用户名匹配，更新最后活跃时间
       await userModel.updateLastActiveTime(userId);
       user = existingUser.data;
       console.log('✅ 用户登录成功（已存在用户）:', user);
@@ -102,9 +112,7 @@ export async function login(ctx) {
  */
 export async function logout(ctx) {
   try {
-    const userId = ctx.session?.userId;
-
-    console.log('🚪 用户登出请求:', userId);
+    console.log('🚪 用户登出请求');
 
     // 清除会话
     if (ctx.session) {
@@ -115,7 +123,6 @@ export async function logout(ctx) {
       success: true,
       data: {
         message: '登出成功',
-        userId: userId,
         timestamp: new Date().toISOString()
       }
     };

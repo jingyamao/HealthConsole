@@ -1,6 +1,6 @@
 <template>
   <el-menu
-    default-active="1"
+    :default-active="activeIndex"
     class="header-nav-menu"
     text-color="#0f3b2e"
     active-text-color="#005a9c"
@@ -104,6 +104,15 @@ import {
   Money,
   QuestionFilled
 } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+// 根据当前路由计算激活的菜单项
+const activeIndex = computed(() => {
+  return route.path
+})
 </script>
 
 <style lang="less" scoped>

@@ -1,4 +1,5 @@
 import { agentManager } from "../services/langchain/index.js";
+import { defaultLLM } from "../services/langchain/core/llm.js";
 import * as chatModel from "../model/chat.js";
 
 /**
@@ -24,7 +25,7 @@ export async function chat(ctx) {
       ctx.status = 400;
       ctx.body = {
         success: false,
-        error: { code: 'MISSING_PARAMS', message: '缺少 sessionId 或 userId' }
+        data: { code: 'MISSING_PARAMS', message: '缺少 sessionId 或 userId' }
       };
       return;
     }
@@ -68,13 +69,56 @@ export async function chat(ctx) {
 }
 
 /**
+ * 使用AI生成会话标题
+ * @param {string} firstMessage - 用户第一条消息
+ * @returns {Promise<string>} - AI生成的标题
+ */
+async function generateAITitle(firstMessage) {
+  try {
+    const prompt = `请根据用户的医疗健康问题，生成一个简洁、准确的会话标题。
+    用户问题："${firstMessage}"
+
+    要求：
+    1. 标题长度不超过15个字符
+    2. 准确概括问题的核心内容
+    3. 使用中文，简洁明了
+    4. 如果是症状描述，突出主要症状
+    5. 如果是咨询类问题，突出咨询主题
+
+    请直接返回标题，不要其他内容。`;
+
+    const response = await defaultLLM.invoke([
+      { role: "system", content: "你是一个专业的医疗助手，擅长总结医疗问题并生成简洁的标题。" },
+      { role: "user", content: prompt }
+    ]);
+
+    // 清理响应，确保只返回标题
+    let title = response.content.trim();
+    
+    // 移除可能的引号或特殊字符
+    title = title.replace(/["']/g, '');
+    
+    // 限制长度
+    if (title.length > 15) {
+      title = title.substring(0, 15) + '...';
+    }
+
+    console.log('🤖 AI生成标题:', { originalMessage: firstMessage, generatedTitle: title });
+    return title;
+  } catch (error) {
+    console.error('❌ AI生成标题失败:', error);
+    return `新对话 ${new Date().toLocaleString('zh-CN')}`;
+  }
+}
+
+/**
  * 创建新会话
  * @param {Object} ctx - Koa上下文
  * @returns {Promise<void>}
  */
 export async function createConversation(ctx) {
   try {
-    const { userId, title } = ctx.request.body;
+    const { userId, title, firstMessage } = ctx.request.body;
 
     if (!userId) {
       ctx.status = 400;
@@ -85,17 +129,36 @@ export async function createConversation(ctx) {
       return;
     }
 
-    // 如果没有提供标题，使用默认标题
-    const conversationTitle = title || `新对话 ${new Date().toLocaleString('zh-CN')}`;
+    let conversationTitle;
+
+    // 如果提供了标题，直接使用
+    if (title) {
+      conversationTitle = title;
+    }
+    // 如果提供了第一条消息，使用AI生成标题
+    else if (firstMessage && firstMessage.trim().length > 0) {
+      conversationTitle = await generateAITitle(firstMessage.trim());
+    }
+    // 否则使用默认标题
+    else {
+      conversationTitle = `新对话 ${new Date().toLocaleString('zh-CN')}`;
+    }
 
     const result = await chatModel.createConversation(userId, conversationTitle);
 
     if (result.success) {
+      // 如果提供了第一条消息，保存到会话中
+      if (firstMessage && firstMessage.trim().length > 0) {
+        await chatModel.saveMessage(result.data.id, userId, 'user', firstMessage.trim());
+        console.log('💬 第一条消息已保存到会话:', { sessionId: result.data.id, message: firstMessage.trim() });
+      }
+
       ctx.body = {
         success: true,
         data: {
           conversation: result.data,
-          message: '会话创建成功'
+          message: '会话创建成功',
+          titleGenerated: !title // 标记标题是否为AI生成
         }
       };
     } else {
@@ -163,7 +226,6 @@ export async function getUserConversations(ctx) {
 export async function getChatHistory(ctx) {
   try {
     const { sessionId } = ctx.params;
-    const { limit = 50 } = ctx.query;
 
     if (!sessionId) {
       ctx.status = 400;
@@ -174,12 +236,14 @@ export async function getChatHistory(ctx) {
       return;
     }
 
-    const messages = await chatModel.getChatHistory(sessionId, parseInt(limit));
+    const messages = await chatModel.getChatHistory(sessionId);
+    const conversation = await chatModel.getConversationById(sessionId);
 
     ctx.body = {
       success: true,
       data: {
         sessionId,
+        title: conversation?.title || '未知会话',
         messages,
         count: messages.length
       }

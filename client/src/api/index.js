@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
 
 const instance = axios.create({
   baseURL: '/api', // 接口基础路径
@@ -20,6 +21,8 @@ instance.interceptors.response.use(
     if (status === 200) {
       return data;
     } else {
+      // 错误请求提示统一处理
+      ElMessage.error(data.message || '请求失败');
       return Promise.reject(response);
     }
   },
@@ -32,15 +35,14 @@ instance.interceptors.response.use(
   }
 );
 
-const get = (url, params = {}, config = { baseURL: '', headers: {} }) => {
+const get = (url, params = {}, config = {}) => {
   const { baseURL, headers } = config;
   return new Promise((resolve, reject) => {
     instance({
       method: 'get',
       url,
       params,
-      baseURL,
-      headers,
+      headers: { ...instance.defaults.headers, ...headers },
     }).then(res => {
       resolve(res);
     }).catch(err => {
@@ -49,7 +51,7 @@ const get = (url, params = {}, config = { baseURL: '', headers: {} }) => {
   });
 };
 
-const post = (url, params = {}, config = { baseURL: '', headers: {} }) => {
+const post = (url, params = {}, config = {}) => {
   const { baseURL, headers } = config;
   return new Promise((resolve, reject) => {
     instance({
@@ -57,7 +59,7 @@ const post = (url, params = {}, config = { baseURL: '', headers: {} }) => {
       url,
       data: params,
       baseURL,
-      headers,
+      headers: { ...instance.defaults.headers, ...headers },
     }).then(res => {
       resolve(res);
     }).catch(err => {
@@ -66,7 +68,7 @@ const post = (url, params = {}, config = { baseURL: '', headers: {} }) => {
   });
 };
 
-const put = (url, params = {}, config = { baseURL: '', headers: {} }) => {
+const put = (url, params = {}, config = {}) => {
   const { baseURL, headers } = config;
   return new Promise((resolve, reject) => {
     instance({
@@ -74,7 +76,7 @@ const put = (url, params = {}, config = { baseURL: '', headers: {} }) => {
       url,
       data: params,
       baseURL,
-      headers,
+      headers: { ...instance.defaults.headers, ...headers },
     }).then(res => {
       resolve(res);
     }).catch(err => {
@@ -83,7 +85,7 @@ const put = (url, params = {}, config = { baseURL: '', headers: {} }) => {
   });
 };
 
-const del = (url, params = {}, config = { baseURL: '', headers: {} }) => {
+const del = (url, params = {}, config = {}) => {
   const { baseURL, headers } = config;
   return new Promise((resolve, reject) => {
     instance({
@@ -91,7 +93,7 @@ const del = (url, params = {}, config = { baseURL: '', headers: {} }) => {
       url,
       data: params,
       baseURL,
-      headers,
+      headers: { ...instance.defaults.headers, ...headers },
     }).then(res => {
       resolve(res);
     }).catch(err => {

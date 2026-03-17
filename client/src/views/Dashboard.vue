@@ -6,6 +6,23 @@
       <div class="menu-toggle" @click="toggleMenu">
         <el-icon><Menu /></el-icon>
       </div>
+      <div class="user-info">
+        <el-dropdown @command="handleCommand">
+          <div class="user-avatar-wrapper">
+            <el-avatar :size="36" :icon="UserFilled" class="user-avatar" />
+            <span class="user-name">{{ userInfo.userName || '用户' }}</span>
+            <el-icon class="arrow-icon"><ArrowDown /></el-icon>
+          </div>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="logout">
+                <el-icon><SwitchButton /></el-icon>
+                <span>退出登录</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </div>
     <div class="header-content">
       <div class="header-nav" :class="{ 'collapsed': isMenuCollapsed }">
@@ -19,15 +36,45 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { Menu } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Menu, SwitchButton, ArrowDown, UserFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import HeaderNav from '@/components/headerNav.vue'
-import vue from 'eslint-plugin-vue'
+import { useUserStore } from '@/stores/user'
+import { storeToRefs } from 'pinia'
+
+const router = useRouter()
+const userStore = useUserStore()
+const { userInfo } = storeToRefs(userStore)
 
 const isMenuCollapsed = ref(false)
 
 const toggleMenu = () => {
   isMenuCollapsed.value = !isMenuCollapsed.value
+}
+
+// 处理下拉菜单命令
+const handleCommand = (command) => {
+  if (command === 'logout') {
+    handleLogout()
+  }
+}
+
+// 退出登录
+const handleLogout = async () => {
+  try {
+    await userStore.userLogout()
+    // 清除本地存储的所有数据
+    localStorage.clear()
+    ElMessage.success('退出登录成功')
+    router.push('/login')
+  } catch (error) {
+    // 即使API调用失败，也要清除本地数据
+    localStorage.clear()
+    ElMessage.warning('已退出登录')
+    router.push('/login')
+  }
 }
 
 const handleResize = () => {
@@ -94,6 +141,49 @@ onUnmounted(() => {
         transform: scale(1.1);
       }
     }
+    .user-info {
+      display: flex;
+      align-items: center;
+      margin-right: 20px;
+      
+      .user-avatar-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: rgba(0, 107, 125, 0.05);
+        
+        &:hover {
+          background-color: rgba(0, 107, 125, 0.1);
+          transform: translateY(-1px);
+        }
+        
+        .user-avatar {
+          background: linear-gradient(135deg, #006b7d 0%, #008ba3 100%);
+          box-shadow: 0 2px 8px rgba(0, 107, 125, 0.2);
+        }
+        
+        .user-name {
+          color: #0f3b2e;
+          font-size: 14px;
+          font-weight: 500;
+          letter-spacing: 0.5px;
+        }
+        
+        .arrow-icon {
+          color: #006b7d;
+          font-size: 14px;
+          transition: transform 0.3s ease;
+        }
+      }
+      
+      &:hover .arrow-icon {
+        transform: rotate(180deg);
+      }
+    }
   }
   .header-content {
     flex: 1;
@@ -113,9 +203,11 @@ onUnmounted(() => {
     }
     .content {
       flex: 1;
-      padding: 20px;
+      padding: 10px;
       background-color: #f5f7fa;
       transition: all 0.3s ease;
+      height: calc(100vh - 60px);
+      box-sizing: border-box;
       
       &.full-width {
         width: 100%;
@@ -136,6 +228,25 @@ onUnmounted(() => {
       }
       .menu-toggle {
         display: block;
+      }
+      .user-info {
+        margin-right: 10px;
+        
+        .user-avatar-wrapper {
+          padding: 4px 8px;
+          gap: 6px;
+          
+          .user-name {
+            display: none;
+          }
+          
+          .user-avatar {
+            :deep(svg) {
+              width: 32px;
+              height: 32px;
+            }
+          }
+        }
       }
     }
     .header-content {
@@ -164,9 +275,20 @@ onUnmounted(() => {
       .title {
         font-size: 1.2rem;
       }
+      .user-info {
+        .user-avatar-wrapper {
+          padding: 4px 6px;
+          
+          .user-avatar {
+            :deep(svg) {
+              width: 28px;
+              height: 28px;
+            }
+          }
+        }
+      }
     }
     .header-content {
-      
       .content {
         padding: 10px;
       }

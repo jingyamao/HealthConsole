@@ -42,6 +42,28 @@
 
       <h1>医疗后台管理系统</h1>
 
+      <!-- 登录输入框 -->
+      <div class="form-inputs">
+        <div class="input-group">
+          <div class="input-label">用户ID</div>
+          <input
+            type="text"
+            v-model="userInfo.userId"
+            placeholder="请输入用户ID"
+            class="login-input"
+          />
+        </div>
+        <div class="input-group">
+          <div class="input-label">用户名</div>
+          <input
+            type="text"
+            v-model="userInfo.userName"
+            placeholder="请输入用户名"
+            class="login-input"
+          />
+        </div>
+      </div>
+
       <button
         class="login-button"
         @click="handleLogin"
@@ -57,9 +79,15 @@
 </template>
 
 <script setup>
+import { storeToRefs } from 'pinia'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from '@/components/Icon.vue'
+import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
+
+const userStore = useUserStore()
+const { userInfo } = storeToRefs(userStore)
 
 const router = useRouter()
 const particles = ref([])
@@ -84,8 +112,14 @@ const createParticles = () => {
 }
 
 // 处理登录
-const handleLogin = () => {
-  router.push('/Home')
+const handleLogin = async () => {
+  const loginSuccess = await userStore.userLogin()
+  if (loginSuccess && loginSuccess.success) {
+    ElMessage.success(loginSuccess.data.message)
+    router.push('/Home')
+  } else {
+    ElMessage.error(loginSuccess.data.message || '登录失败')
+  }
 }
 
 // 按钮悬停效果
@@ -186,11 +220,57 @@ onMounted(() => {
   h1 {
     color: #006b7d;
     font-size: 2.2rem;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
     letter-spacing: 1px;
     font-weight: 600;
     animation: slideUp 1s ease-out;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* 表单输入区域 */
+  .form-inputs {
+    margin-bottom: 30px;
+    animation: slideUp 1s ease-out 0.3s;
+    animation-fill-mode: forwards;
+    opacity: 0;
+    
+    .input-group {
+      margin-bottom: 20px;
+      text-align: left;
+      
+      .input-label {
+        display: block;
+        color: #006b7d;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+      }
+      
+      .login-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e0f7fa;
+        border-radius: 8px;
+        font-size: 16px;
+        color: #0f3b2e;
+        background-color: rgba(255, 255, 255, 0.8);
+        transition: all 0.3s ease;
+        box-sizing: border-box;
+        
+        &:focus {
+          outline: none;
+          border-color: #00bcd4;
+          box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.1);
+          background-color: #ffffff;
+        }
+        
+        &::placeholder {
+          color: #a0c4c9;
+          font-size: 14px;
+        }
+      }
+    }
   }
 
   /* 交互式按钮 */
@@ -311,6 +391,24 @@ onMounted(() => {
 
   h1 {
     font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
+
+  .form-inputs {
+    margin-bottom: 20px;
+    
+    .input-group {
+      margin-bottom: 15px;
+      
+      .input-label {
+        font-size: 13px;
+      }
+      
+      .login-input {
+        padding: 10px 14px;
+        font-size: 14px;
+      }
+    }
   }
 
   .logo-icon {

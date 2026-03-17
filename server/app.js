@@ -57,7 +57,7 @@ app.use(async (ctx) => {
   };
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
   console.log(`\n🚀 HealthConsole Server is running on http://127.0.0.1:${PORT}\n`);

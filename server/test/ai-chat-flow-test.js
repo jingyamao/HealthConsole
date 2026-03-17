@@ -266,11 +266,34 @@ async function testIntentDatabaseQuery() {
     });
 
     if (result.success) {
+      const message = result.data.message;
+
       // 检查是否正确识别为数据库查询意图
-      const isDatabaseQuery = result.data.message.includes("数据库查询");
-      return recordTest("4. 数据库查询意图", isDatabaseQuery, {
-        replyPreview: result.data.message.substring(0, 150) + "...",
-        recognizedAsDatabaseQuery: isDatabaseQuery
+      const isDatabaseQuery = message.includes("数据库查询");
+
+      // 检查是否包含查询计划信息
+      const hasQueryPlan = message.includes("查询计划");
+
+      // 检查是否返回了实际的查询结果（不是失败提示）
+      const hasValidResult = !message.includes("查询失败") &&
+                             !message.includes("暂未实现") &&
+                             (message.includes("患者") ||
+                              message.includes("统计") ||
+                              message.includes("查询结果"));
+
+      // 检查回复长度（有效的查询回复应该有一定长度）
+      const hasContent = message.length > 100;
+
+      const success = isDatabaseQuery && hasQueryPlan && hasValidResult && hasContent;
+
+      return recordTest("4. 数据库查询意图", success, {
+        replyPreview: message.substring(0, 200) + "...",
+        recognizedAsDatabaseQuery: isDatabaseQuery,
+        hasQueryPlan: hasQueryPlan,
+        hasValidResult: hasValidResult,
+        hasContent: hasContent,
+        messageLength: message.length,
+        fullResponse: message
       });
     }
     return recordTest("4. 数据库查询意图", false, result);
@@ -408,11 +431,132 @@ async function testVectorSearchWithKeywords() {
 }
 
 // ============================================
-// 测试套件 5: 多轮对话测试
+// 测试套件 5: 数据库查询功能详细测试
+// ============================================
+
+async function testDatabaseQueryPatientCount() {
+  printSection("测试 14: 数据库查询 - 患者数量统计");
+
+  try {
+    const result = await request("POST", "/ai/chat", {
+      userId: sessionData.userId,
+      sessionId: sessionData.sessionId2,
+      message: "统计一下医院有多少患者"
+    });
+
+    if (result.success) {
+      const message = result.data.message;
+
+      // 检查是否识别为数据库查询
+      const isDatabaseQuery = message.includes("数据库查询");
+      // 检查是否包含查询计划
+      const hasQueryPlan = message.includes("查询计划");
+      // 检查是否包含统计结果
+      const hasStats = message.includes("统计") || message.includes("数量") || message.includes("共") || message.includes("人");
+      // 检查是否不是失败消息
+      const notFailed = !message.includes("查询失败") && !message.includes("暂未实现");
+
+      const success = isDatabaseQuery && hasQueryPlan && hasStats && notFailed;
+
+      return recordTest("14. 数据库查询-患者数量统计", success, {
+        replyPreview: message.substring(0, 200) + "...",
+        isDatabaseQuery,
+        hasQueryPlan,
+        hasStats,
+        notFailed,
+        fullResponse: message
+      });
+    }
+    return recordTest("14. 数据库查询-患者数量统计", false, result);
+  } catch (error) {
+    return recordTest("14. 数据库查询-患者数量统计", false, null, error.message);
+  }
+}
+
+async function testDatabaseQueryPatientList() {
+  printSection("测试 15: 数据库查询 - 患者列表查询");
+
+  try {
+    const result = await request("POST", "/ai/chat", {
+      userId: sessionData.userId,
+      sessionId: sessionData.sessionId2,
+      message: "列出所有男性患者的信息"
+    });
+
+    if (result.success) {
+      const message = result.data.message;
+
+      // 检查是否识别为数据库查询
+      const isDatabaseQuery = message.includes("数据库查询");
+      // 检查是否包含查询计划
+      const hasQueryPlan = message.includes("查询计划");
+      // 检查是否包含列表结果
+      const hasListResult = message.includes("患者") || message.includes("列表") || message.includes("姓名");
+      // 检查是否不是失败消息
+      const notFailed = !message.includes("查询失败") && !message.includes("暂未实现");
+
+      const success = isDatabaseQuery && hasQueryPlan && hasListResult && notFailed;
+
+      return recordTest("15. 数据库查询-患者列表查询", success, {
+        replyPreview: message.substring(0, 200) + "...",
+        isDatabaseQuery,
+        hasQueryPlan,
+        hasListResult,
+        notFailed,
+        fullResponse: message
+      });
+    }
+    return recordTest("15. 数据库查询-患者列表查询", false, result);
+  } catch (error) {
+    return recordTest("15. 数据库查询-患者列表查询", false, null, error.message);
+  }
+}
+
+async function testDatabaseQueryDiseaseStats() {
+  printSection("测试 16: 数据库查询 - 疾病统计分析");
+
+  try {
+    const result = await request("POST", "/ai/chat", {
+      userId: sessionData.userId,
+      sessionId: sessionData.sessionId2,
+      message: "分析一下各年龄段患者的疾病分布情况"
+    });
+
+    if (result.success) {
+      const message = result.data.message;
+
+      // 检查是否识别为数据库查询
+      const isDatabaseQuery = message.includes("数据库查询");
+      // 检查是否包含查询计划
+      const hasQueryPlan = message.includes("查询计划");
+      // 检查是否包含统计分析
+      const hasAnalysis = message.includes("分析") || message.includes("分布") || message.includes("统计");
+      // 检查是否不是失败消息
+      const notFailed = !message.includes("查询失败") && !message.includes("暂未实现");
+
+      const success = isDatabaseQuery && hasQueryPlan && hasAnalysis && notFailed;
+
+      return recordTest("16. 数据库查询-疾病统计分析", success, {
+        replyPreview: message.substring(0, 200) + "...",
+        isDatabaseQuery,
+        hasQueryPlan,
+        hasAnalysis,
+        notFailed,
+        fullResponse: message
+      });
+    }
+    return recordTest("16. 数据库查询-疾病统计分析", false, result);
+  } catch (error) {
+    return recordTest("16. 数据库查询-疾病统计分析", false, null, error.message);
+  }
+}
+
+// ============================================
+// 测试套件 6: 多轮对话测试
 // ============================================
 
 async function testMultiTurnConversation() {
-  printSection("测试 14: 多轮对话测试");
+  printSection("测试 17: 多轮对话测试");
 
   try {
     const messages = [
@@ -447,23 +591,23 @@ async function testMultiTurnConversation() {
       await delay(1000);
     }
 
-    return recordTest("14. 多轮对话", allSuccess, {
+    return recordTest("17. 多轮对话", allSuccess, {
       turns: messages.length,
       replies: replies
     });
   } catch (error) {
-    return recordTest("14. 多轮对话", false, null, error.message);
+    return recordTest("17. 多轮对话", false, null, error.message);
   }
 }
 
 async function testChatHistory() {
-  printSection("测试 15: 查看聊天记录");
+  printSection("测试 18: 查看聊天记录");
 
   try {
     const result = await request("GET", `/ai/chat-history/${sessionData.sessionId1}`);
 
     if (result.success) {
-      return recordTest("15. 查看聊天记录", true, {
+      return recordTest("18. 查看聊天记录", true, {
         messageCount: result.data.count,
         messages: result.data.messages.map(m => ({
           role: m.role,
@@ -471,24 +615,24 @@ async function testChatHistory() {
         }))
       });
     }
-    return recordTest("15. 查看聊天记录", false, result);
+    return recordTest("18. 查看聊天记录", false, result);
   } catch (error) {
-    return recordTest("15. 查看聊天记录", false, null, error.message);
+    return recordTest("18. 查看聊天记录", false, null, error.message);
   }
 }
 
 // ============================================
-// 测试套件 6: 删除会话
+// 测试套件 7: 删除会话
 // ============================================
 
 async function testDeleteConversation() {
-  printSection("测试 16: 删除会话");
+  printSection("测试 19: 删除会话");
 
   try {
     const result = await request("DELETE", `/ai/conversations/${sessionData.sessionId2}`);
-    return recordTest("16. 删除会话", result.success, result.data);
+    return recordTest("19. 删除会话", result.success, result.data);
   } catch (error) {
-    return recordTest("16. 删除会话", false, null, error.message);
+    return recordTest("19. 删除会话", false, null, error.message);
   }
 }
 
@@ -506,9 +650,10 @@ async function runFullTest() {
   console.log("  1. 用户认证（登录/登出）");
   console.log("  2. 会话管理（创建/获取/更新/删除）");
   console.log("  3. 意图识别（医疗对话/向量搜索/数据库查询/其他）");
-  console.log("  4. 向量搜索功能（知识库/病例/关键词）");
-  console.log("  5. 多轮对话和上下文保持");
-  console.log("  6. 聊天记录查看");
+  console.log("  4. 数据库查询功能详细测试（统计/列表/分析）");
+  console.log("  5. 向量搜索功能（知识库/病例/关键词）");
+  console.log("  6. 多轮对话和上下文保持");
+  console.log("  7. 聊天记录查看");
 
   // 定义测试步骤
   const testSteps = [
@@ -518,7 +663,7 @@ async function runFullTest() {
 
     // 意图识别测试
     testIntentMedicalChat,
-    testIntentDatabaseQuery,
+    testIntentDatabaseQuery,  // 基础数据库查询意图识别
     testIntentVectorSearch,
     testIntentOther,
 
@@ -531,6 +676,11 @@ async function runFullTest() {
     testVectorSearchKnowledge,
     testVectorSearchPatientCase,
     testVectorSearchWithKeywords,
+
+    // 数据库查询功能详细测试（重点）
+    testDatabaseQueryPatientCount,
+    testDatabaseQueryPatientList,
+    testDatabaseQueryDiseaseStats,
 
     // 多轮对话
     testMultiTurnConversation,
