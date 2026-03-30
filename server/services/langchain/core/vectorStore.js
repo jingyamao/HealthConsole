@@ -73,43 +73,150 @@ class VectorService {
   }
 
   /**
-   * 存储知识文档向量数据 
+   * 分段处理长文本（按段落分割）
+   * @param {string} text - 原始文本
+   * @param {number} maxLength - 每段最大长度
+   * @returns {string[]} - 分段后的文本数组
+   */
+  splitTextIntoChunks(text, maxLength = 1500) {
+    // 按段落分割
+    const paragraphs = text.split('\n\n').filter(p => p.trim().length > 0);
+    const chunks = [];
+    let currentChunk = '';
+    
+    for (const paragraph of paragraphs) {
+      if (currentChunk.length + paragraph.length <= maxLength) {
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      } else {
+        if (currentChunk) {
+          chunks.push(currentChunk);
+        }
+        // 如果单个段落就超长，需要进一步分割
+        if (paragraph.length > maxLength) {
+          // 按句子分割
+          const sentences = paragraph.split(/[.。!?！？]/);
+          let tempChunk = '';
+          for (const sentence of sentences) {
+            if (tempChunk.length + sentence.length <= maxLength) {
+              tempChunk += sentence + '. ';
+            } else {
+              if (tempChunk) chunks.push(tempChunk.trim());
+              tempChunk = sentence + '. ';
+            }
+          }
+          if (tempChunk.trim()) chunks.push(tempChunk.trim());
+          currentChunk = '';
+        } else {
+          currentChunk = paragraph;
+        }
+      }
+    }
+    
+    if (currentChunk) {
+      chunks.push(currentChunk);
+    }
+    
+    return chunks;
+  }
+
+  /**
+   * 聚合搜索：将同一文档的多个片段聚合在一起
+   * @param {Array} results - 搜索结果数组
+   * @returns {Array} - 聚合后的结果
+   */
+  aggregateResults(results) {
+    // 按 sourceId 分组（同一文档的片段有相同的 sourceId）
+    const grouped = {};
+    
+    results.forEach(item => {
+      const key = `${item.sourceType}_${item.sourceId}`;
+      
+      if (!grouped[key]) {
+        grouped[key] = {
+          ...item,
+          allChunks: [item],
+          maxSimilarity: item.similarity,
+          avgSimilarity: item.similarity,
+          isAggregated: true
+        };
+      } else {
+        grouped[key].allChunks.push(item);
+        // 更新最大相似度
+        grouped[key].maxSimilarity = Math.max(grouped[key].maxSimilarity, item.similarity);
+        // 计算平均相似度
+        const totalSim = grouped[key].allChunks.reduce((sum, chunk) => sum + chunk.similarity, 0);
+        grouped[key].avgSimilarity = totalSim / grouped[key].allChunks.length;
+      }
+    });
+    
+    // 转换回数组并按最高相似度排序
+    return Object.values(grouped)
+      .sort((a, b) => b.maxSimilarity - a.maxSimilarity);
+  }
+
+  /**
+   * 存储知识文档向量（支持长文档分段）
    * @param {Object} params - 参数对象
    * @param {string} params.documentId - 知识文档ID（字符串）
    * @param {string} params.content - 内容
    * @param {string} params.title - 标题
    * @param {Object} [params.metadata] - 元数据
-   * @returns {Object} - 创建的向量记录
+   * @returns {Object[]} - 创建的向量记录数组
    */
   async storeKnowledgeVector({ documentId, content, title, metadata = {} }) {
-    const vector = await this.generateEmbedding(content);
+    // 将长文档分段
+    const chunks = this.splitTextIntoChunks(content, 1500);
+    console.log(`📄 文档分段：共分为 ${chunks.length} 段`);
     
-    const vectorRecord = await prisma.vectorStore.create({
-      data: {
-        sourceType: 'knowledge',
-        sourceId: documentId.toString(),
-        knowledgeDocumentId: null, // 不关联到 KnowledgeDocument 表
-        title: title,
-        content: content,
-        vector: vector, // 直接存储为 JSON 数组，适配数据库的 Json 类型
-        contentType: 'knowledge_base',
-        tags: metadata.tags || ['知识库', '医学指南'],
-        metadata: metadata,
-        relevance: 1.0
+    const vectorRecords = [];
+    
+    // 为每一段生成向量并存储
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const chunkTitle = `${title} (第${i + 1}/${chunks.length}部分)`;
+      
+      try {
+        const vector = await this.generateEmbedding(chunk);
+        
+        const vectorRecord = await prisma.vectorStore.create({
+          data: {
+            sourceType: 'knowledge',
+            sourceId: documentId.toString(),
+            knowledgeDocumentId: null,
+            title: chunkTitle,
+            content: chunk, // 存储分段内容
+            vector: vector,
+            contentType: 'knowledge_base',
+            tags: metadata.tags || ['知识库', '医学指南'],
+            metadata: {
+              ...metadata,
+              part: i + 1,
+              totalParts: chunks.length,
+              originalTitle: title
+            },
+            relevance: 1.0
+          }
+        });
+        
+        vectorRecords.push(vectorRecord);
+        console.log(`   ✅ 第${i + 1}/${chunks.length}段向量化完成`);
+      } catch (error) {
+        console.error(`   ❌ 第${i + 1}段向量化失败:`, error.message);
       }
-    });
+    }
     
-    return vectorRecord;
+    return vectorRecords;
   }
 
   /**
-   * 向量相似性搜索 (基于当前数据库结构的 JSON 存储)
+   * 向量相似性搜索（支持文档分段聚合）
    * @param {string} query - 查询文本
    * @param {Object} options - 搜索选项
    * @param {string} [options.sourceType] - 数据源类型 ('patient', 'knowledge', 'conversation')
    * @param {string} [options.contentType] - 内容类型
    * @param {number} [options.limit=5] - 返回结果数量
    * @param {number} [options.minRelevance=0.3] - 最小相关性阈值
+   * @param {boolean} [options.aggregate=true] - 是否聚合分段文档
    * @returns {Object[]} - 搜索结果，包含相似度分数
    */
   async similaritySearch(query, options = {}) {
@@ -117,7 +224,8 @@ class VectorService {
       sourceType, 
       contentType, 
       limit = 5, 
-      minRelevance = 0.3 
+      minRelevance = 0.3,
+      aggregate = true  // 默认启用聚合
     } = options;
     
     // 生成查询向量
@@ -143,7 +251,7 @@ class VectorService {
         knowledgeDocumentId: true,
         title: true,
         content: true,
-        vector: true, // JSON 格式的向量，适配当前数据库结构
+        vector: true,
         contentType: true,
         tags: true,
         metadata: true,
@@ -162,13 +270,21 @@ class VectorService {
       };
     });
     
-    // 过滤并排序结果
-    const filteredResults = scoredVectors
-      .filter(item => item.similarity >= minRelevance)
+    // 过滤结果
+    let filteredResults = scoredVectors
+      .filter(item => item.similarity >= minRelevance);
+    
+    // 如果启用聚合且是知识文档搜索
+    if (aggregate && sourceType === 'knowledge') {
+      filteredResults = this.aggregateResults(filteredResults);
+    }
+    
+    // 排序并限制数量
+    const finalResults = filteredResults
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
     
-    return filteredResults;
+    return finalResults;
   }
 
   /**

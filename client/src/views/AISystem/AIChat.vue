@@ -267,19 +267,6 @@ const sendMessage = async () => {
   const message = inputMessage.value.trim()
   if (!message || isLoading.value) return
   
-  // 如果没有当前会话，先创建新会话
-  if (!currentAIChat.value.sessionId) {
-    try {
-      const params = {
-        firstMessage: message
-      }
-      await aiChatStore.postNewSessionRequest(params)
-    } catch (error) {
-      ElMessage.error('创建会话失败')
-      return
-    }
-  }
-  
   // 立即显示用户消息
   const userMessage = {
     role: 'user',
@@ -296,6 +283,19 @@ const sendMessage = async () => {
   // 显示 loading
   isLoading.value = true
   
+  // 如果没有当前会话，先创建新会话
+  if (!currentAIChat.value.sessionId) {
+    try {
+      const params = {
+        firstMessage: message
+      }
+      await aiChatStore.postNewSessionRequest(params)
+    } catch (error) {
+      ElMessage.error('创建会话失败')
+      return
+    }
+  }
+
   try {
     // 调用 API，等待后端返回
     const res = await aiChatStore.postAIChatRequest({
