@@ -24,20 +24,3 @@ export {
   vectorTools
 };
 
-// 当前启用的工具列表（用于Agent）
-export const activeTools = [
-  intentRecognitionTool,  // 意图识别
-  medicalChatTool,        // 医疗对话
-  vectorSearchTool,       // 向量搜索
-  databaseQueryTool,      // 数据库查询
-  listKnowledgeBaseTool   // 知识库列表
-];
-
-// 所有可用的向量工具
-export const availableVectorTools = [
-  vectorSearchTool,
-  patientCaseSearchTool,
-  knowledgeBaseSearchTool,
-  addDocumentTool,
-  listKnowledgeBaseTool
-];

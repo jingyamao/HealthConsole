@@ -21,7 +21,7 @@ const routes = [
     children: [
       // 首页路由
       {
-        path: '/Home',
+        path: '/home',
         name: 'Home',
         component: () => import('@/views/Home.vue'),
         meta: {
@@ -37,6 +37,15 @@ const routes = [
         meta: {
           requiresAuth: true,
           title: '患者列表'
+        }
+      },
+      {
+        path: '/patients/:id',
+        name: 'PatientDetail',
+        component: () => import('@/views/Patient/PatientDetail.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '患者详情'
         }
       },
       // AI系统路由

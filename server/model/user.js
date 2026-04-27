@@ -1,7 +1,4 @@
-import pkg from '../generated/prisma/index.js';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
+import prisma from '../prisma/index.js';
 
 /**
  * 创建新用户
@@ -17,7 +14,6 @@ export async function createUser(userData) {
       }
     });
 
-    console.log('✅ 用户创建成功:', user);
     return {
       success: true,
       data: user
@@ -91,26 +87,15 @@ export async function findUserById(userId) {
  */
 export async function updateLastActiveTime(userId) {
   try {
-    // AiUser 模型没有 lastActiveTime 字段，直接返回成功
-    const user = await prisma.aiUser.findUnique({
-      where: { userId }
+    const user = await prisma.aiUser.update({
+      where: { userId },
+      data: { updatedAt: new Date() }
     });
 
-    if (user) {
-      return {
-        success: true,
-        data: user
-      };
-    }
-
     return {
-      success: false,
-      error: {
-        code: 'USER_NOT_FOUND',
-        message: '用户不存在'
-      }
+      success: true,
+      data: user
     };
-
   } catch (error) {
     console.error('❌ 更新活跃时间失败:', error);
     return {

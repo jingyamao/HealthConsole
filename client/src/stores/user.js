@@ -21,7 +21,7 @@ export const useUserStore = defineStore('user',() => {
       localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
       return res
     } else {
-      return Promise.reject('登录失败')
+      throw new Error(res?.error?.message || '登录失败')
     }
   }
   async function userLogout() {

@@ -1,9 +1,4 @@
 // agent.js - LangChain Agent 框架实现 (v0.2)
-import { createToolCallingAgent, AgentExecutor } from "langchain/agents";
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder,
-} from "@langchain/core/prompts";
 import { defaultLLM } from "../core/llm.js";
 import {
   medicalChatTool,
@@ -18,62 +13,40 @@ import {
  * @returns {string} 系统提示词
  */
 function createSystemPrompt() {
-  return `你是一位专业的医疗助手AI，具备丰富的医学知识。
-    你的职责是回答用户的医疗健康相关问题，提供症状分析、治疗建议。
+  return `你是 HealthConsole 智能医疗系统的 AI 助手。
 
-    重要提醒：
-    1. 你的建议仅供参考，不能替代专业医生的诊断
-    2. 对于紧急情况或严重症状，必须建议用户立即就医
-    3. 不要给出具体的药物剂量建议
-    4. 使用通俗易懂的语言解释医学概念
+## 你的能力
+1. **查询患者数据库**：疾病统计、年龄分布、治疗情况、费用分析、症状分布、病程记录等
+2. **搜索医学知识库**：临床指南、诊疗规范、医学文献（通过向量相似度检索）
+3. **医疗健康咨询**：症状分析、疾病科普、健康管理建议
 
-    你可以使用以下工具来帮助用户：
-    - intent_recognition: 分析用户消息的意图类型
-    - medical_chat: 回答医疗健康相关问题
-    - vector_search: 搜索医疗知识库、查找相似病例、检索诊疗指南
+## 数据库说明
+系统中存有大量患者的完整医疗档案，主要数据表包括：
+- Patient：患者基础信息（姓名、年龄、性别、联系方式、医保类型、地址等）
+- Diagnosis：诊断信息（主要诊断、次要诊断、鉴别诊断、ICD编码）
+- CurrentSymptom：症状信息（主诉、症状描述、持续时间、严重程度）
+- TreatmentPlan：治疗方案（用药记录、手术方案、生活建议、随访计划）
+- MedicalHistory：病史信息（既往史、家族史、过敏史、个人史）
+- ProgressNote：病程记录（入院记录、病程记录、手术记录、出院记录）
+- FinancialInfo：费用信息（总费用、医保报销、自费金额、支付状态）
+- PhysicalExamination：体格检查（生命体征、各系统检查结果）
+- ExaminationResult：检查结果（实验室检验、影像学检查、特殊检查）
+- MedicalTeam：医疗团队（主治医生、会诊医生、护理团队、科室信息）
 
-    当用户发送消息时，请根据情况选择合适的工具来提供帮助。`;
-}
+## 工具使用规则
+1. 当用户询问患者数据相关问题（如"有多少患者"、"疾病分布"、"治疗情况"、"费用"等）时，**必须优先使用 database_query 工具**获取真实数据
+2. 当用户搜索医学知识、诊疗指南、相似病例时，使用 vector_search 工具
+3. 当用户进行医疗健康咨询、症状分析时，使用 medical_chat 工具
+4. 当用户想查看知识库有哪些内容时，使用 list_knowledge_base 工具
+5. 涉及数据查询时，优先使用 database_query 获取真实数据，不要凭空编造数字
 
-/**
- * 创建Agent执行器
- * @param {Object} options - 配置选项
- * @param {Object} options.llm - 语言模型实例
- * @param {boolean} options.verbose - 是否显示详细日志
- * @param {number} options.maxIterations - 最大迭代次数
- * @returns {Promise<AgentExecutor>} Agent执行器
- */
-export async function createAgent(options = {}) {
-  const llm = options.llm || defaultLLM;
-
-  // 定义可用的工具
-  const tools = [intentRecognitionTool, medicalChatTool, vectorSearchTool];
-
-  // 创建提示模板
-  const prompt = ChatPromptTemplate.fromMessages([
-    ["system", createSystemPrompt()],
-    new MessagesPlaceholder("chat_history"),
-    ["human", "{input}"],
-    new MessagesPlaceholder("agent_scratchpad"),
-  ]);
-
-  // 创建工具调用Agent（LangChain 0.2 推荐方式）
-  const agent = await createToolCallingAgent({
-    llm,
-    tools,
-    prompt,
-  });
-
-  // 创建Agent执行器
-  const agentExecutor = new AgentExecutor({
-    agent,
-    tools,
-    verbose: options.verbose || false,
-    maxIterations: options.maxIterations || 5,
-  });
-
-  console.log("✅ Agent 创建成功（使用工具调用模式）");
-  return agentExecutor;
+## 重要规则
+1. 不能替代医生诊断，仅供参考
+2. 紧急症状必须建议立即就医
+3. 不提供具体药物剂量
+4. 用通俗易懂的语言回答
+5. 回答数据相关问题时，给出具体数字而非笼统描述
+6. 支持 Markdown 格式输出（表格、列表、加粗等）`;
 }
 
 /**
@@ -83,7 +56,7 @@ export async function createAgent(options = {}) {
 export class AgentManager {
   constructor() {
     this.llm = defaultLLM;
-    this.chatHistory = [];
+    this.sessionHistories = new Map(); // sessionId -> [{role, content}]
   }
 
   /**
@@ -99,58 +72,45 @@ export class AgentManager {
    * @param {string} input - 用户输入
    * @returns {Promise<Object>} 执行结果
    */
-  async execute(input) {
+  async execute(input, sessionId = 'default') {
     try {
-      console.log("🤖 Agent 执行:", input);
+      console.log("🤖 Agent 执行:", input, "会话:", sessionId);
 
-      // 并行执行：LLM分析 + 意图识别工具
-      const [analysisResult, intentResult] = await Promise.all([
-        // LLM分析
-        this.llm.invoke([
-          { role: "system", content: "分析用户意图，返回JSON格式：{userIntent, suggestedTool, reasoning, confidence}" },
-          { role: "user", content: `分析："${input}"` }
-        ]),
-        // 意图识别工具
-        intentRecognitionTool.invoke({ message: input })
-      ]);
+      // 获取会话历史（最近6条 = 3轮对话）
+      const history = this.sessionHistories.get(sessionId) || [];
+      const recentHistory = history.slice(-6);
+      const historyText = recentHistory.map(m =>
+        `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`
+      ).join('\n');
 
-      // 解析LLM分析结果
-      let llmAnalysis;
-      try {
-        const jsonMatch = analysisResult.content.match(/\{[\s\S]*\}/);
-        llmAnalysis = JSON.parse(jsonMatch ? jsonMatch[0] : analysisResult.content);
-      } catch (e) {
-        llmAnalysis = { suggestedTool: "medical_chat", confidence: 0.5 };
-      }
-
-      // 解析工具意图结果
+      // 仅使用意图识别工具（去掉重复的LLM分析，节省1次LLM调用）
       let toolIntent;
       try {
+        const intentResult = await intentRecognitionTool.invoke({ message: input });
         toolIntent = JSON.parse(intentResult);
       } catch (e) {
         toolIntent = { intent: "medical_chat", confidence: 0.5 };
       }
 
       // 综合决策
-      let finalDecision = this.makeDecision(llmAnalysis, toolIntent, input);
+      let finalDecision = this.makeDecision(toolIntent, input, historyText);
       console.log("⚖️ 决策:", finalDecision.action);
 
       // 执行对应操作
       let output;
-      let intermediateSteps = [];
 
       switch (finalDecision.action) {
         case "medical_chat":
-          output = await medicalChatTool.invoke({ query: input });
+          output = await medicalChatTool.invoke({ query: input, history: historyText });
           break;
 
         case "database_query":
           try {
-            const dbResult = await databaseQueryTool.invoke({ query: input });
+            const dbResult = await databaseQueryTool.invoke({ query: input, history: historyText });
             const parsed = JSON.parse(dbResult);
             output = parsed.success ? parsed.answer : `查询失败：${parsed.error}`;
           } catch (e) {
-            output = await medicalChatTool.invoke({ query: input });
+            output = await medicalChatTool.invoke({ query: input, history: historyText });
           }
           break;
 
@@ -163,15 +123,18 @@ export class AgentManager {
             });
             const parsed = JSON.parse(vectorResult);
             if (parsed.success && parsed.resultCount > 0) {
-              const summary = parsed.results.map((r, i) => `[${i + 1}] ${r.title}: ${r.content.substring(0, 100)}...`).join('\n');
+              const context = parsed.results.map((r, i) =>
+                `【来源${i + 1}】${r.title}\n${r.content.substring(0, 200)}...`
+              ).join('\n\n');
               output = await medicalChatTool.invoke({
-                query: `基于以下内容回答"${input}"：\n${summary}`
+                query: input,
+                context: `以下是与问题相关的参考资料：\n\n${context}\n\n请基于以上参考资料回答用户问题。优先使用参考资料中的信息，如果参考资料不足以回答，可以补充通用医学知识。引用具体的来源编号。`
               });
             } else {
-              output = await medicalChatTool.invoke({ query: input });
+              output = await medicalChatTool.invoke({ query: input, history: historyText });
             }
           } catch (e) {
-            output = await medicalChatTool.invoke({ query: input });
+            output = await medicalChatTool.invoke({ query: input, history: historyText });
           }
           break;
 
@@ -182,7 +145,7 @@ export class AgentManager {
             if (parsed.success) {
               const docList = parsed.documents.map(d => `${d.index}. ${d.title}`).join('\n');
               const response = await this.llm.invoke([
-                { role: "system", content: "介绍知识库内容" },
+                { role: "system", content: "你是知识库助手，友好地介绍知识库中的文档内容。" },
                 { role: "user", content: `用户问："${input}"\n\n知识库文档：\n${docList}\n\n请友好地介绍这些文档。` }
               ]);
               output = response.content;
@@ -195,15 +158,16 @@ export class AgentManager {
           break;
 
         default:
-          output = await medicalChatTool.invoke({ query: input });
+          output = await medicalChatTool.invoke({ query: input, history: historyText });
       }
 
-      // 更新对话历史（限制20条）
-      this.chatHistory.push({ role: "user", content: input });
-      this.chatHistory.push({ role: "assistant", content: output });
-      if (this.chatHistory.length > 20) {
-        this.chatHistory = this.chatHistory.slice(-20);
+      // 更新会话级对话历史（限制20条）
+      history.push({ role: "user", content: input });
+      history.push({ role: "assistant", content: output });
+      if (history.length > 20) {
+        history.splice(0, history.length - 20);
       }
+      this.sessionHistories.set(sessionId, history);
 
       return { success: true, output };
     } catch (error) {
@@ -213,18 +177,18 @@ export class AgentManager {
   }
 
   /**
-   * 综合LLM分析和工具识别结果，做出最终决策（简化版）
-   * @param {Object} llmAnalysis - LLM分析结果
+   * 综合意图识别结果和关键词规则，做出最终决策
    * @param {Object} toolIntent - 工具意图识别结果
    * @param {string} input - 用户原始输入
+   * @param {string} historyText - 会话历史文本
    * @returns {Object} 最终决策
    */
-  makeDecision(llmAnalysis, toolIntent, input) {
+  makeDecision(toolIntent, input, historyText) {
     const inputLower = input.toLowerCase();
 
     // 优先级1: 知识库列表查询（关键词匹配）
     const listKeywords = ['有哪些', '有什么', '列表', '所有', '全部', '目录', '列举'];
-    const hasKnowledgeRef = inputLower.includes('知识库') || inputLower.includes('知识文档') || 
+    const hasKnowledgeRef = inputLower.includes('知识库') || inputLower.includes('知识文档') ||
                             inputLower.includes('文档') || inputLower.includes('指南');
     if (hasKnowledgeRef && listKeywords.some(kw => inputLower.includes(kw))) {
       return {
@@ -233,20 +197,12 @@ export class AgentManager {
       };
     }
 
-    // 优先级2: 使用工具识别的意图（如果置信度足够）
+    // 优先级2: 使用意图识别工具结果（置信度 >= 0.7）
     if (toolIntent.confidence >= 0.7) {
       return {
         action: toolIntent.intent,
-        reasoning: toolIntent.reasoning
-      };
-    }
-
-    // 优先级3: 使用LLM分析结果（如果置信度足够）
-    if (llmAnalysis.confidence >= 0.7 && llmAnalysis.suggestedTool) {
-      return {
-        action: llmAnalysis.suggestedTool,
-        reasoning: llmAnalysis.reasoning,
-        searchQuery: llmAnalysis.userIntent
+        reasoning: toolIntent.reasoning,
+        searchQuery: input
       };
     }
 
@@ -260,9 +216,14 @@ export class AgentManager {
   /**
    * 清空对话历史
    */
-  clearHistory() {
-    this.chatHistory = [];
-    console.log("🗑️ 对话历史已清空");
+  clearHistory(sessionId) {
+    if (sessionId) {
+      this.sessionHistories.delete(sessionId);
+      console.log("🗑️ 会话历史已清空:", sessionId);
+    } else {
+      this.sessionHistories.clear();
+      console.log("🗑️ 所有会话历史已清空");
+    }
   }
 }
 

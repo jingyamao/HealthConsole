@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { 
+import {
   postAIChat,
   postNewSession,
   putNewTitle,
@@ -36,9 +36,19 @@ export const useAIChatStore = defineStore('aiChat', () => {
       const res = await postNewSession(params);
       currentAIChat.value.sessionId = res.data.conversation.id;
       currentAIChat.value.title = res.data.conversation.title;
-      currentAIChat.value.messages = [];
       currentAIChatList.value.push(currentAIChat.value);
-      localStorage.setItem('currentAIChatList', JSON.stringify(currentAIChatList.value));
+      // 同时更新左侧会话列表，使其立即显示新会话
+      allAIChatSessionList.value.unshift({
+        id: res.data.conversation.id,
+        sessionId: res.data.conversation.id,
+        title: res.data.conversation.title,
+        createdAt: res.data.conversation.createdAt
+      });
+      try {
+        localStorage.setItem('currentAIChatList', JSON.stringify(currentAIChatList.value));
+      } catch (e) {
+        console.warn('[Store] localStorage保存失败:', e)
+      }
       return res;
     } catch (error) {
       return Promise.reject(error);
@@ -69,6 +79,19 @@ export const useAIChatStore = defineStore('aiChat', () => {
     } catch (error) {
       return Promise.reject(error);
     }
+  }
+
+  // 发送AI聊天请求（返回完整响应，由组件处理打字机效果）
+  async function postAIChatStreamRequest(data) {
+    const params = {
+      userId: userInfo.value.userId,
+      sessionId: data.sessionId,
+      message: data.message,
+    }
+
+    // 直接 await，错误由组件处理
+    const res = await postAIChat(params)
+    return res
   }
   
   // 更新会话标题
@@ -108,7 +131,6 @@ export const useAIChatStore = defineStore('aiChat', () => {
       }
       const res = await getSessionList(params);
       allAIChatSessionList.value = res.data.conversations;
-    //   console.log('获取会话列表:', res.data.conversations);
       return res;
     } catch (error) {
       return Promise.reject(error);
@@ -116,11 +138,15 @@ export const useAIChatStore = defineStore('aiChat', () => {
   }
 
   //删除会话
-  async function deleteSessionRequest(sessionId) {
+  async function deleteSessionRequest(payload) {
     try {
+      const normalizedSessionId = typeof payload === 'string'
+        ? payload
+        : payload?.sessionId
+
       const params = {
         userId: userInfo.value.userId,
-        sessionId: sessionId,
+        sessionId: normalizedSessionId,
       }
       const res = await deleteSession(params);
       return res;
@@ -173,6 +199,7 @@ export const useAIChatStore = defineStore('aiChat', () => {
     allAIChatSessionList,
     postNewSessionRequest,
     postAIChatRequest,
+    postAIChatStreamRequest,
     putNewTitleRequest,
     getChatHistoryRequest,
     getSessionListRequest,

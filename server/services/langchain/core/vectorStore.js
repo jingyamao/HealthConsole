@@ -1,7 +1,5 @@
-import { PrismaClient } from "../../../generated/prisma/index.js";
+import prisma from '../../../prisma/index.js';
 import { defaultEmbeddings } from "../core/embeddings.js";
-
-const prisma = new PrismaClient();
 
 /**
  * 向量服务 - 处理嵌入生成和向量存储
@@ -288,70 +286,6 @@ class VectorService {
   }
 
   /**
-   * 高效的向量相似性搜索（针对大量数据优化）
-   * @param {string} query - 查询文本
-   * @param {Object} options - 搜索选项
-   * @param {string} [options.sourceType] - 数据源类型
-   * @param {string} [options.contentType] - 内容类型
-   * @param {number} [options.limit=5] - 返回结果数量
-   * @param {number} [options.minRelevance=0.3] - 最小相关性阈值
-   * @returns {Object[]} - 搜索结果，包含相似度分数
-   */
-  async similaritySearchOptimized(query, options = {}) {
-    const { 
-      sourceType, 
-      contentType, 
-      limit = 5, 
-      minRelevance = 0.3 
-    } = options;
-    
-    // 生成查询向量
-    const queryVector = await this.generateEmbedding(query);
-    
-    // 构建数据库查询条件
-    const whereConditions = {};
-    if (sourceType) {
-      whereConditions.sourceType = sourceType;
-    }
-    if (contentType) {
-      whereConditions.contentType = contentType;
-    }
-    
-    // 获取所有匹配的向量记录
-    const allVectors = await prisma.vectorStore.findMany({
-      where: whereConditions,
-      select: {
-        id: true,
-        sourceType: true,
-        sourceId: true,
-        patientId: true,
-        knowledgeDocumentId: true,
-        title: true,
-        content: true,
-        vector: true, // JSON 格式的向量
-        contentType: true,
-        tags: true,
-        metadata: true,
-        relevance: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
-    
-    // 使用更高效的相似度计算方法
-    const scoredVectors = allVectors
-      .map(record => ({
-        ...record,
-        similarity: this.cosineSimilarity(queryVector, record.vector)
-      }))
-      .filter(item => item.similarity >= minRelevance)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
-    
-    return scoredVectors;
-  }
-
-  /**
    * 计算两个向量的余弦相似度
    * @param {number[]} vecA - 向量A (从数据库获取的 JSON 格式)
    * @param {number[]} vecB - 向量B (从数据库获取的 JSON 格式)
@@ -384,83 +318,6 @@ class VectorService {
     }
     
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  /**
-   * 批量存储多个向量数据
-   * @param {Array} records - 记录数组
-   * @returns {Array} - 创建的向量记录
-   */
-  async batchStoreVectors(records) {
-    const createdRecords = [];
-    
-    for (const record of records) {
-      let storedRecord;
-      
-      if (record.type === 'patient') {
-        storedRecord = await this.storePatientVector({
-          patientId: record.patientId,
-          content: record.content,
-          title: record.title,
-          metadata: record.metadata
-        });
-      } else if (record.type === 'knowledge') {
-        storedRecord = await this.storeKnowledgeVector({
-          documentId: record.documentId,
-          content: record.content,
-          title: record.title,
-          metadata: record.metadata
-        });
-      }
-      
-      createdRecords.push(storedRecord);
-    }
-    
-    return createdRecords;
-  }
-
-  /**
-   * 更新向量记录
-   * @param {number} id - 向量记录ID
-   * @param {Object} updates - 更新数据
-   * @returns {Object} - 更新的记录
-   */
-  async updateVector(id, updates) {
-    const { content, title, metadata, ...otherUpdates } = updates;
-    
-    // 如果内容发生变化，重新生成向量
-    if (content) {
-      const vector = await this.generateEmbedding(content);
-      otherUpdates.vector = vector;
-    }
-    
-    if (title) {
-      otherUpdates.title = title;
-    }
-    
-    if (metadata) {
-      otherUpdates.metadata = metadata;
-    }
-    
-    const updatedRecord = await prisma.vectorStore.update({
-      where: { id: id },
-      data: otherUpdates
-    });
-    
-    return updatedRecord;
-  }
-
-  /**
-   * 删除向量记录
-   * @param {number} id - 向量记录ID
-   * @returns {Object} - 删除的记录
-   */
-  async deleteVector(id) {
-    const deletedRecord = await prisma.vectorStore.delete({
-      where: { id: id }
-    });
-    
-    return deletedRecord;
   }
 
   /**

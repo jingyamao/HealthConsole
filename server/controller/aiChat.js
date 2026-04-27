@@ -3,6 +3,83 @@ import { defaultLLM } from "../services/langchain/core/llm.js";
 import * as chatModel from "../model/chat.js";
 
 /**
+ * AI 聊天 - 流式输出
+ * @param {Object} ctx - Koa上下文
+ * @returns {Promise<void>}
+ */
+export async function chatStream(ctx) {
+  try {
+    const { message, sessionId, userId } = ctx.request.body;
+
+    // 参数验证
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      ctx.status = 400;
+      ctx.body = {
+        success: false,
+        error: { code: 'INVALID_MESSAGE', message: '消息内容不能为空' }
+      };
+      return;
+    }
+
+    if (!sessionId || !userId) {
+      ctx.status = 400;
+      ctx.body = {
+        success: false,
+        error: { code: 'MISSING_PARAMS', message: '缺少 sessionId 或 userId' }
+      };
+      return;
+    }
+
+    console.log('🤖 AI聊天流式请求:', { message, sessionId, userId });
+
+    // 保存用户消息
+    await chatModel.saveMessage(sessionId, userId, 'user', message);
+
+    // 设置 SSE 响应头
+    ctx.status = 200;
+    ctx.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+
+    // 禁用 Koa 的默认响应处理
+    ctx.res.flushHeaders();
+
+    // 使用 Agent 处理消息，获取完整回复
+    const result = await agentManager.execute(message, sessionId);
+
+    if (result.success) {
+      const fullContent = result.output;
+
+      // 一次性发送完整内容，前端打字机效果负责逐字显示
+      ctx.res.write(`data: ${JSON.stringify({ content: fullContent, done: true, sessionId })}\n\n`);
+      ctx.res.end();
+
+      // 保存 AI 回复
+      await chatModel.saveMessage(sessionId, userId, 'assistant', fullContent);
+    } else {
+      ctx.res.write(`data: ${JSON.stringify({ error: result.error, done: true })}\n\n`);
+      ctx.res.end();
+    }
+
+  } catch (error) {
+    console.error('❌ AI聊天流式错误:', error);
+    if (!ctx.res.headersSent) {
+      ctx.status = 500;
+      ctx.body = {
+        success: false,
+        error: { code: 'INTERNAL_ERROR', message: error.message }
+      };
+    } else {
+      ctx.res.write(`data: ${JSON.stringify({ error: error.message, done: true })}\n\n`);
+      ctx.res.end();
+    }
+  }
+}
+
+/**
  * AI 聊天 - 发送消息
  * @param {Object} ctx - Koa上下文
  * @returns {Promise<void>}
@@ -25,7 +102,7 @@ export async function chat(ctx) {
       ctx.status = 400;
       ctx.body = {
         success: false,
-        data: { code: 'MISSING_PARAMS', message: '缺少 sessionId 或 userId' }
+        error: { code: 'MISSING_PARAMS', message: '缺少 sessionId 或 userId' }
       };
       return;
     }
@@ -35,8 +112,8 @@ export async function chat(ctx) {
     // 保存用户消息
     await chatModel.saveMessage(sessionId, userId, 'user', message);
 
-    // 使用 Agent 处理消息
-    const result = await agentManager.execute(message);
+    // 使用 Agent 处理消息（传递 sessionId 用于会话级历史隔离）
+    const result = await agentManager.execute(message, sessionId);
 
     if (result.success) {
       // 保存 AI 回复

@@ -5,6 +5,7 @@ import Koa from "koa";
 import bodyParser from "koa-bodyparser";
 import koaStatic from "koa-static";
 import session from "koa-session";
+import cors from "@koa/cors";
 import router from "./router/index.js";
 import { errorHandler } from "./middleware/index.js";
 
@@ -35,6 +36,12 @@ process.on("uncaughtException", (err, origin) => {
 // 使用会话中间件
 app.use(session(sessionConfig, app));
 
+// CORS 中间件
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
+
 // 静态文件服务
 app.use(koaStatic(join(__dirname, "../client/dist")));
 
@@ -60,41 +67,5 @@ app.use(async (ctx) => {
 const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 HealthConsole Server is running on http://127.0.0.1:${PORT}\n`);
-
-  console.log('📋 API 路由列表:');
-  console.log('═══════════════════════════════════════════════════════════\n');
-
-  // 用户认证相关
-  console.log('🔐 用户认证接口');
-  console.log('───────────────────────────────────────────────────────────');
-  console.log('  POST   /api/user/login              用户登录');
-  console.log('  POST   /api/user/logout             用户登出');
-  console.log('');
-
-  // AI 对话相关
-  console.log('🤖 AI 对话接口');
-  console.log('───────────────────────────────────────────────────────────');
-  console.log('  POST   /api/ai/chat                 AI 聊天（在现有会话中对话）');
-  console.log('  POST   /api/ai/conversations        创建新会话');
-  console.log('  GET    /api/ai/conversations/:userId  获取用户的所有会话');
-  console.log('  GET    /api/ai/chat-history/:sessionId 获取会话的聊天记录');
-  console.log('  PUT    /api/ai/conversations/:sessionId/title  更新会话标题');
-  console.log('  DELETE /api/ai/conversations/:sessionId        删除会话');
-  console.log('');
-
-  // 系统相关
-  console.log('🔧 系统接口');
-  console.log('───────────────────────────────────────────────────────────');
-  console.log('  GET    /api/health                  健康检查');
-  console.log('');
-
-  console.log('═══════════════════════════════════════════════════════════\n');
-
-  console.log('💡 使用示例:');
-  console.log('  1. 用户登录: POST /api/user/login { userId, userName }');
-  console.log('  2. 创建会话: POST /api/ai/conversations { userId, title }');
-  console.log('  3. AI 对话: POST /api/ai/chat { message, sessionId, userId }');
-  console.log('  4. 查看历史: GET /api/ai/chat-history/:sessionId');
-  console.log('');
+  console.log(`🚀 HealthConsole Server running on http://127.0.0.1:${PORT}`);
 });

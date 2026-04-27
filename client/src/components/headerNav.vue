@@ -1,186 +1,292 @@
 <template>
-  <el-menu
-    :default-active="activeIndex"
-    class="header-nav-menu"
-    text-color="#0f3b2e"
-    active-text-color="#005a9c"
-    background-color="#f7f9fc"
-    hover-background-color="#e8f4fd"
-    router
-    >
-    <!-- 首页 -->
-    <el-menu-item index="/Home">
-      <template #title>
-        <el-icon><House /></el-icon>
-        <span>首页</span>
-      </template>
-    </el-menu-item>
+  <nav class="nav-shell">
+    <div class="nav-brand">
+      <div class="brand-mark">
+        <span></span>
+      </div>
+      <div>
+        <p class="brand-overline">Health Console</p>
+        <h2>智能医疗中枢</h2>
+      </div>
+    </div>
 
-    <!-- AI系统 -->
-    <el-menu-item index="/ai">
-      <template #title>
-        <el-icon><Search /></el-icon>
-        <span>AI聊天</span>
-      </template>
-    </el-menu-item>
-    
-    <!-- 患者管理 -->
-    <el-sub-menu index="1">
-      <template #title>
-        <el-icon><User /></el-icon>
-        <span>患者管理</span>
-      </template>
-      <el-menu-item index="/patients">
-        <template #title>
-          <el-icon><List /></el-icon>
-          <span>患者列表</span>
-        </template>
-      </el-menu-item>
-      <!-- <el-menu-item index="/patients/add">
-        <template #title>
-          <el-icon><Plus /></el-icon>
-          <span>患者管理</span>
-        </template>
-      </el-menu-item>
-      <el-menu-item index="/patients/import">
-        <template #title>
-          <el-icon><Download /></el-icon>
-          <span>患者导入</span>
-        </template>
-      </el-menu-item>
-      <el-menu-item index="/patients/export">
-        <template #title>
-          <el-icon><Upload /></el-icon>
-          <span>患者导出</span>
-        </template>
-      </el-menu-item> -->
-    </el-sub-menu>
+    <div class="nav-scroll-area">
+      <div
+        v-for="section in navSections"
+        :key="section.title"
+        class="nav-section"
+      >
+        <p class="section-title">{{ section.title }}</p>
+        <router-link
+          v-for="item in section.items"
+          :key="item.path"
+          :to="item.path"
+          class="nav-link"
+          :class="{ active: isActive(item.path) }"
+        >
+          <div class="nav-icon">
+            <el-icon><component :is="item.icon" /></el-icon>
+          </div>
+          <div class="nav-copy">
+            <span class="nav-name">{{ item.label }}</span>
+            <span class="nav-desc">{{ item.desc }}</span>
+          </div>
+        </router-link>
+      </div>
+    </div>
 
-    <!-- 报表统计 -->
-    <el-sub-menu index="3">
-      <template #title>
-        <el-icon><PieChart /></el-icon>
-        <span>报表统计</span>
-      </template>
-      <el-menu-item index="/reports/patients">
-        <template #title>
-          <el-icon><DataAnalysis /></el-icon>
-          <span>患者报表</span>
-        </template>
-      </el-menu-item>
-      <el-menu-item index="/reports/diagnosis">
-        <template #title>
-          <el-icon><Histogram /></el-icon>
-          <span>诊疗统计</span>
-        </template>
-      </el-menu-item>
-      <el-menu-item index="/reports/financial">
-        <template #title>
-          <el-icon><Money /></el-icon>
-          <span>费用统计</span>
-        </template>
-      </el-menu-item>
-    </el-sub-menu>
-
-    <!-- 帮助中心 -->
-    <el-menu-item index="/help/guide">
-      <template #title>
-        <el-icon><QuestionFilled /></el-icon>
-        <span>帮助中心</span>
-      </template>
-    </el-menu-item>
-  </el-menu>
+    <div class="nav-footer">
+      <div class="footer-card">
+        <div class="footer-header">
+          <span class="status-pill success">系统在线</span>
+          <span class="footer-dot"></span>
+        </div>
+        <h3>今日值守建议</h3>
+        <p>优先关注首页风险预警与费用异常趋势，适合作为演示入口。</p>
+      </div>
+    </div>
+  </nav>
 </template>
 
 <script setup>
 import {
   House,
   User,
-  List,
   Search,
-  PieChart,
   DataAnalysis,
   Histogram,
   Money,
   QuestionFilled
 } from '@element-plus/icons-vue'
-import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
 
-// 根据当前路由计算激活的菜单项
-const activeIndex = computed(() => {
-  return route.path
-})
+const navSections = [
+  {
+    title: '指挥中心',
+    items: [
+      { path: '/home', label: '首页总览', desc: '实时态势与重点预警', icon: House },
+      { path: '/ai', label: 'AI 对话', desc: '医疗问答与分析草稿', icon: Search }
+    ]
+  },
+  {
+    title: '核心业务',
+    items: [
+      { path: '/patients', label: '患者管理', desc: '档案、诊断与随访', icon: User },
+      { path: '/reports/patients', label: '患者报表', desc: '规模、结构与分层', icon: DataAnalysis },
+      { path: '/reports/diagnosis', label: '诊疗统计', desc: '诊断构成与趋势', icon: Histogram },
+      { path: '/reports/financial', label: '费用统计', desc: '医保与支付态势', icon: Money }
+    ]
+  },
+  {
+    title: '智能辅助',
+    items: [
+      { path: '/help/guide', label: '帮助中心', desc: '操作说明与建设路线', icon: QuestionFilled }
+    ]
+  }
+]
+
+const isActive = (path) => {
+  if (path === '/patients') {
+    return route.path.startsWith('/patients')
+  }
+  return route.path === path
+}
 </script>
 
 <style lang="less" scoped>
-.header-nav-menu {
-  width: 100%;
+.nav-shell {
+  display: flex;
   height: 100%;
-  border: none;
+  flex-direction: column;
+  color: var(--text-primary);
+  overflow: hidden;
+}
 
-  // 修改Element Plus默认样式
-  :deep(.el-menu-item),
-  :deep(.el-sub-menu__title) {
-    transition: all 0.2s ease;
-    font-weight: 500;
-    border-radius: 4px;
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(142, 164, 188, 0.14);
 
-    &:hover {
-      background-color: #e8f4fd !important;
-      color: #0f3b2e !important;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0, 90, 156, 0.15);
+  h2 {
+    margin: 4px 0 0;
+    font-size: 20px;
+    line-height: 1.1;
+  }
+}
+
+.brand-overline {
+  margin: 0;
+  color: var(--accent-cyan);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.brand-mark {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(91, 139, 255, 0.22), rgba(92, 225, 230, 0.12));
+  border: 1px solid rgba(92, 225, 230, 0.18);
+  box-shadow: inset 0 0 24px rgba(92, 225, 230, 0.08);
+  flex-shrink: 0;
+
+  span {
+    position: absolute;
+    inset: 10px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    box-shadow: 0 0 18px rgba(92, 225, 230, 0.4);
+  }
+}
+
+.nav-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-title {
+  margin: 0;
+  padding: 6px 8px 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+
+  &:hover {
+    transform: translateX(3px);
+    color: var(--text-primary);
+    border-color: rgba(86, 182, 213, 0.14);
+    background: linear-gradient(135deg, rgba(90, 141, 238, 0.08), rgba(86, 182, 213, 0.08));
+    box-shadow: 0 6px 16px rgba(125, 150, 180, 0.1);
+  }
+
+  &.active {
+    color: var(--text-primary);
+    border-color: rgba(86, 182, 213, 0.16);
+    background:
+      radial-gradient(circle at left top, rgba(86, 182, 213, 0.12), transparent 48%),
+      linear-gradient(135deg, rgba(90, 141, 238, 0.14), rgba(86, 182, 213, 0.08));
+    box-shadow: 0 8px 20px rgba(125, 150, 180, 0.12);
+  }
+}
+
+.nav-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #f5f9ff;
+  border: 1px solid rgba(142, 164, 188, 0.14);
+  color: var(--accent-cyan);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.nav-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nav-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nav-desc {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-footer {
+  flex-shrink: 0;
+  padding: 6px 8px 8px;
+  border-top: 1px solid rgba(142, 164, 188, 0.12);
+}
+
+.footer-card {
+  padding: 10px 12px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f8fbff, #f3f8ff);
+  border: 1px solid rgba(142, 164, 188, 0.14);
+
+  h3 {
+    margin: 8px 0 2px;
+    font-size: 14px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+}
+
+.footer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 12px rgba(61, 217, 165, 0.65);
+}
+
+@media (max-width: 768px) {
+  .nav-brand {
+    padding: 8px 10px 8px;
+
+    h2 {
+      font-size: 18px;
     }
   }
 
-  :deep(.el-menu-item.is-active) {
-    background: linear-gradient(135deg, #006b7d 0%, #006b7d 100%) !important;
-    color: #ffffff !important;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 90, 156, 0.3);
-    border: none !important;
-
-    &:hover {
-      background: linear-gradient(135deg, #006b7d 0%, #006b7d 100%) !important;
-      transform: translateY(-1px);
-    }
+  .nav-link {
+    padding: 6px;
   }
 
-  :deep(.el-sub-menu__title.is-active) {
-    background: linear-gradient(135deg, #006b7d 0%, #006b7d 100%) !important;
-    color: #ffffff !important;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 90, 156, 0.3);
-    border: none !important;
-  }
-
-  :deep(.el-sub-menu .el-menu-item) {
-    background-color: #f7f9fc !important;
-    color: #0f3b2e !important;
-    border-bottom: 1px solid rgba(0, 90, 156, 0.05) !important;
-    border-radius: 3px;
-
-    &:hover {
-      background-color: #e8f4fd !important;
-      color: #006b7d !important;
-    }
-
-    &.is-active {
-      background: linear-gradient(135deg, #006b7d 0%, #006b7d 100%) !important;
-      color: #ffffff !important;
-    }
-  }
-
-  :deep(.el-sub-menu__icon-arrow) {
-    color: #006b7d !important;
-    transition: transform 0.3s ease;
-  }
-
-  :deep(.el-sub-menu:hover .el-sub-menu__icon-arrow) {
-    transform: rotate(180deg);
+  .nav-scroll-area {
+    padding: 6px;
   }
 }
 </style>

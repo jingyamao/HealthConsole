@@ -1,7 +1,4 @@
-import pkg from '../generated/prisma/index.js';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
+import prisma from '../prisma/index.js';
 
 /**
  * 创建新的对话会话
@@ -37,8 +34,6 @@ export async function createConversation(userId, title = null) {
         status: 'active'
       }
     });
-
-    console.log('✅ 创建会话成功:', conversation.id, conversation.title);
 
     return {
       success: true,
@@ -213,8 +208,6 @@ export async function deleteConversation(conversationId) {
       data: { status: 'archived' }
     });
 
-    console.log('✅ 会话已归档:', conversationId);
-
     return {
       success: true,
       data: { message: '会话删除成功' }
@@ -241,56 +234,12 @@ export async function updateConversationTitle(conversationId, title) {
       data: { title }
     });
 
-    console.log('✅ 更新会话标题成功:', conversationId, title);
-
     return {
       success: true,
       data: conversation
     };
   } catch (error) {
     console.error('❌ 更新会话标题失败:', error);
-    return {
-      success: false,
-      error: { code: 'DATABASE_ERROR', message: error.message }
-    };
-  }
-}
-
-/**
- * 获取会话详情
- * @param {string} conversationId - 会话ID
- * @returns {Promise<Object>} - 会话详情
- */
-export async function getConversationDetail(conversationId) {
-  try {
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            role: true,
-            content: true,
-            createdAt: true
-          }
-        }
-      }
-    });
-
-    if (!conversation) {
-      return {
-        success: false,
-        error: { code: 'NOT_FOUND', message: '会话不存在' }
-      };
-    }
-
-    return {
-      success: true,
-      data: conversation
-    };
-  } catch (error) {
-    console.error('❌ 获取会话详情失败:', error);
     return {
       success: false,
       error: { code: 'DATABASE_ERROR', message: error.message }

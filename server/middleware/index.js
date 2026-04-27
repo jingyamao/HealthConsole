@@ -14,7 +14,8 @@ export const errorHandler = () => {
       if (url.startsWith("/api")) {
         ctx.status = typeof status === "number" ? status : 500;
         ctx.body = {
-          msg: message,
+          success: false,
+          error: { code: 'INTERNAL_ERROR', message: message },
         };
       }
       // 非 /api 请求：不处理，Koa 会使用默认的错误响应

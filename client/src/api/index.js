@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { ElMessage } from 'element-plus';
 
 const instance = axios.create({
   baseURL: '/api', // 接口基础路径
@@ -8,29 +7,14 @@ const instance = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// 请求拦截器
-instance.interceptors.request.use((config) => {
-  return config;
-}, () => {
-});
-
 // 响应拦截器
 instance.interceptors.response.use(
   (response) => {
-    const { status, data } = response;
-    if (status === 200) {
-      return data;
-    } else {
-      // 错误请求提示统一处理
-      ElMessage.error(data.message || '请求失败');
-      return Promise.reject(response);
-    }
+    const { data } = response;
+    return data;
   },
   (error) => {
-    const { response } = error;
-    if (!response?.data) return Promise.reject(error);
-    // 错误请求提示统一处理
-    const { data } = response;
+    // 不在此处弹窗，由各组件自行处理错误
     return Promise.reject(error);
   }
 );

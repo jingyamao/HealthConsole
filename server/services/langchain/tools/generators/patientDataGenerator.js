@@ -1,8 +1,6 @@
-import { PrismaClient } from "../../../../generated/prisma/index.js";
+import prisma from '../../../../prisma/index.js';
 import mimoService from "../../core/mimoLLM.js";
 import VectorService from "../../core/vectorStore.js";
-
-const prisma = new PrismaClient();
 const vectorService = new VectorService();
 
 /**

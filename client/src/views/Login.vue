@@ -51,6 +51,7 @@
             v-model="userInfo.userId"
             placeholder="请输入用户ID"
             class="login-input"
+            @keydown.enter="handleLogin"
           />
         </div>
         <div class="input-group">
@@ -60,6 +61,7 @@
             v-model="userInfo.userName"
             placeholder="请输入用户名"
             class="login-input"
+            @keydown.enter="handleLogin"
           />
         </div>
       </div>
@@ -82,7 +84,7 @@
 import { storeToRefs } from 'pinia'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import Icon from '@/components/Icon.vue'
+import Icon from '@/components/icon.vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 
@@ -113,12 +115,14 @@ const createParticles = () => {
 
 // 处理登录
 const handleLogin = async () => {
-  const loginSuccess = await userStore.userLogin()
-  if (loginSuccess && loginSuccess.success) {
-    ElMessage.success(loginSuccess.data.message)
-    router.push('/Home')
-  } else {
-    ElMessage.error(loginSuccess.data.message || '登录失败')
+  try {
+    const loginSuccess = await userStore.userLogin()
+    if (loginSuccess && loginSuccess.success) {
+      ElMessage.success(loginSuccess.data?.message || '登录成功')
+      router.push('/home')
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '登录失败')
   }
 }
 
@@ -192,7 +196,7 @@ onMounted(() => {
   z-index: 20;
   width: 90%;
   max-width: 500px;
-  padding: 40px;
+  padding: 28px;
   background: rgba(255, 255, 255, 0.92);
   border-radius: 20px;
   box-shadow: 0 15px 35px rgba(0, 107, 166, 0.2);
@@ -201,7 +205,7 @@ onMounted(() => {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   .logo-container {
-    margin-bottom: 25px;
+    margin-bottom: 16px;
     animation: fadeIn 1.5s ease-out;
     .logo-icon {
       width: 80px;
@@ -211,7 +215,7 @@ onMounted(() => {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 15px;
+      margin: 0 auto 10px;
       color: white;
       font-size: 36px;
       box-shadow: 0 8px 20px rgba(0, 155, 184, 0.3);
@@ -220,7 +224,7 @@ onMounted(() => {
   h1 {
     color: #006b7d;
     font-size: 2.2rem;
-    margin-bottom: 30px;
+    margin-bottom: 18px;
     letter-spacing: 1px;
     font-weight: 600;
     animation: slideUp 1s ease-out;
@@ -229,13 +233,13 @@ onMounted(() => {
 
   /* 表单输入区域 */
   .form-inputs {
-    margin-bottom: 30px;
+    margin-bottom: 18px;
     animation: slideUp 1s ease-out 0.3s;
     animation-fill-mode: forwards;
     opacity: 0;
     
     .input-group {
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       text-align: left;
       
       .input-label {
@@ -243,13 +247,13 @@ onMounted(() => {
         color: #006b7d;
         font-size: 14px;
         font-weight: 500;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         letter-spacing: 0.5px;
       }
       
       .login-input {
         width: 100%;
-        padding: 12px 16px;
+        padding: 10px 12px;
         border: 2px solid #e0f7fa;
         border-radius: 8px;
         font-size: 16px;
@@ -385,27 +389,27 @@ onMounted(() => {
 /* 响应式调整 */
 @media (max-width: 600px) {
   .login-form {
-    padding: 30px 20px;
+    padding: 20px 14px;
     width: 95%;
   }
 
   h1 {
     font-size: 1.8rem;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
   }
 
   .form-inputs {
-    margin-bottom: 20px;
-    
+    margin-bottom: 14px;
+
     .input-group {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
       
       .input-label {
         font-size: 13px;
       }
       
       .login-input {
-        padding: 10px 14px;
+        padding: 8px 10px;
         font-size: 14px;
       }
     }

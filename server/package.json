@@ -16,6 +16,7 @@
     "prisma": "^6.19.2"
   },
   "dependencies": {
+    "@koa/cors": "^5.0.0",
     "@koa/router": "^13.1.0",
     "@langchain/core": "^0.2.36",
     "@langchain/openai": "^0.2.11",
