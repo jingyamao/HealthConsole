@@ -11,6 +11,7 @@ export async function getDashboardOverview() {
     const [
       totalPatients,
       aiConsented,
+      highRiskCount,
       diagnosisCount,
       financialData,
       todayNewPatients,
@@ -19,6 +20,9 @@ export async function getDashboardOverview() {
     ] = await Promise.all([
       prisma.patient.count(),
       prisma.patient.count({ where: { aiConsent: true } }),
+      prisma.patient.count({
+        where: { aiNotes: { path: ['analysis', 'riskLevel'], equals: 'high' } }
+      }),
       prisma.diagnosis.groupBy({
         by: ['diagnosisName'],
         _count: { id: true },
@@ -84,7 +88,7 @@ export async function getDashboardOverview() {
         totalPatients,
         todayNewPatients,
         aiCoverage: totalPatients > 0 ? Math.round((aiConsented / totalPatients) * 100) : 0,
-        highRisk: Math.floor(totalPatients * 0.15),
+        highRisk: highRiskCount,
         totalCost: Math.round(totalCost),
         insuranceCoverage: Math.round(insuranceCoverage),
         selfPayment: Math.round(selfPayment),

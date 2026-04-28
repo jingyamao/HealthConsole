@@ -86,6 +86,16 @@ const routes = [
           title: '费用统计'
         }
       },
+      // 知识库路由
+      {
+        path: '/knowledge-base',
+        name: 'KnowledgeBase',
+        component: () => import('@/views/KnowledgeBase/KnowledgeBase.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '知识库管理'
+        }
+      },
       // 帮助中心路由
       {
         path: '/help/guide',

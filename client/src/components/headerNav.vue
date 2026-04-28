@@ -56,6 +56,7 @@ import {
   DataAnalysis,
   Histogram,
   Money,
+  Document,
   QuestionFilled
 } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
@@ -82,6 +83,7 @@ const navSections = [
   {
     title: '智能辅助',
     items: [
+      { path: '/knowledge-base', label: '知识库管理', desc: '医学文献与诊疗指南', icon: Document },
       { path: '/help/guide', label: '帮助中心', desc: '操作说明与建设路线', icon: QuestionFilled }
     ]
   }

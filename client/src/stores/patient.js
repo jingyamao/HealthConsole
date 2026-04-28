@@ -22,6 +22,24 @@ export const usePatientStore = defineStore('patient', () => {
     '部分支付'
   ]
 
+  // 解析 AI 分析结果
+  const getAiRiskLevel = (p) => {
+    if (!p.aiNotes) return null
+    if (typeof p.aiNotes === 'object' && p.aiNotes.analysis?.riskLevel) return p.aiNotes.analysis.riskLevel
+    if (typeof p.aiNotes === 'object' && p.aiNotes.riskLevel) return p.aiNotes.riskLevel
+    return null
+  }
+
+  const getAiStatus = (p) => {
+    if (!p.aiNotes) return '待分析'
+    const risk = getAiRiskLevel(p)
+    if (risk === 'high') return '高风险'
+    if (risk === 'moderate') return '已分析'
+    return '已分析'
+  }
+
+  const riskLevelLabel = { high: '高风险', moderate: '中风险', low: '低风险' }
+
   // 将后端数据映射为前端展示格式
   const mapPatient = (p) => ({
     id: p.id,
@@ -34,8 +52,8 @@ export const usePatientStore = defineStore('patient', () => {
     insuranceType: p.insurance || '未知',
     ward: '待分配',
     diagnosis: p.diagnoses?.[0]?.diagnosisName || '待诊断',
-    riskLevel: p.aiConsent ? '已分析' : '待复核',
-    aiStatus: p.aiConsent ? '已分析' : '待复核',
+    riskLevel: riskLevelLabel[getAiRiskLevel(p)] || (p.aiNotes ? '已分析' : '待分析'),
+    aiStatus: getAiStatus(p),
     paymentStatus: p.financialInfos?.[0]?.paymentStatus || '未支付',
     totalCost: p.financialInfos?.[0]?.totalCost || 0,
     selfPayment: 0,

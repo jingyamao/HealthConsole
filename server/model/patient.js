@@ -256,9 +256,12 @@ export async function deletePatient(id) {
  */
 export async function getPatientSummary() {
   try {
-    const [totalPatients, aiConsented, diagnosisCount, financialData] = await Promise.all([
+    const [totalPatients, aiConsented, highRiskCount, diagnosisCount, financialData] = await Promise.all([
       prisma.patient.count(),
       prisma.patient.count({ where: { aiConsent: true } }),
+      prisma.patient.count({
+        where: { aiNotes: { path: ['analysis', 'riskLevel'], equals: 'high' } }
+      }),
       prisma.diagnosis.groupBy({
         by: ['diagnosisName'],
         _count: { id: true },
@@ -284,7 +287,7 @@ export async function getPatientSummary() {
       data: {
         totalPatients,
         aiCoverage: totalPatients > 0 ? Math.round((aiConsented / totalPatients) * 100) : 0,
-        highRisk: Math.floor(totalPatients * 0.15), // 简化：15%为高风险
+        highRisk: highRiskCount,
         totalCost: Math.round(totalCost),
         diagnosisDistribution
       }
