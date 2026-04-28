@@ -72,11 +72,31 @@
         <div v-if="currentAIChat.messages.length === 0 && !isLoading" class="empty-state">
           <div class="empty-illustration"></div>
           <h3>医疗 AI 助手</h3>
-          <p>你可以询问病例分析、诊疗建议、报告整理或知识库相关问题。</p>
+          <p>我可以帮你查询患者数据、搜索医学知识、分析病历或解答医疗问题。</p>
+
+          <div class="tool-hints">
+            <div class="hint-group">
+              <span class="hint-label">数据库查询</span>
+              <span class="hint-desc">询问患者统计、疾病分布、费用分析等问题，我会从数据库中查询真实数据</span>
+            </div>
+            <div class="hint-group">
+              <span class="hint-label">知识库检索</span>
+              <span class="hint-desc">搜索临床指南、诊疗规范等医学文档，引用来源为你解答</span>
+            </div>
+            <div class="hint-group">
+              <span class="hint-label">医疗咨询</span>
+              <span class="hint-desc">解答症状分析、疾病科普、用药参考等医学问题</span>
+            </div>
+          </div>
+
           <div class="quick-prompts">
-            <button class="prompt-chip" @click="sendQuickPrompt('请介绍一下知识库中的医疗文档')">知识库概览</button>
-            <button class="prompt-chip" @click="sendQuickPrompt('糖尿病的常见症状有哪些')">糖尿病症状</button>
-            <button class="prompt-chip" @click="sendQuickPrompt('如何进行高血压的日常管理')">高血压管理</button>
+            <span class="prompts-label">试试这些：</span>
+            <div class="prompts-row">
+              <button class="prompt-chip" @click="sendQuickPrompt('最近一周收了多少高血压患者？')">📊 患者数据查询</button>
+              <button class="prompt-chip" @click="sendQuickPrompt('糖尿病的诊断标准和治疗方案是什么？')">🔍 知识库检索</button>
+              <button class="prompt-chip" @click="sendQuickPrompt('请介绍一下知识库中有哪些文档')">📋 知识库概览</button>
+              <button class="prompt-chip" @click="sendQuickPrompt('冠心病的常见症状和预防措施有哪些？')">🏥 医疗咨询</button>
+            </div>
           </div>
         </div>
 
@@ -93,7 +113,17 @@
 
           <div class="message-bubble-wrap">
             <div class="message-bubble markdown-body" :class="{ streaming: message.streaming }" v-html="formatMessage(message.content, message.streaming)"></div>
-            <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+            <div class="message-meta-row">
+              <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+              <button
+                v-if="message.role === 'assistant' && message.content && !message.streaming"
+                class="msg-copy-btn"
+                @click="copyMsg(message.content)"
+                title="复制消息"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -521,6 +551,15 @@ const formatMessage = (content, isStreaming) => {
   }
 }
 
+const copyMsg = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制')
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
 const formatTime = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
@@ -871,12 +910,57 @@ onUnmounted(() => {
   border: 1px solid rgba(86, 182, 213, 0.16);
 }
 
+.tool-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.hint-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(90, 141, 238, 0.03);
+  border: 1px solid rgba(142, 164, 188, 0.08);
+}
+
+.hint-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  white-space: nowrap;
+  min-width: 72px;
+  padding-top: 1px;
+}
+
+.hint-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
 .quick-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.prompts-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.prompts-row {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   justify-content: center;
-  margin-top: 14px;
 }
 
 .prompt-chip {
@@ -974,10 +1058,40 @@ onUnmounted(() => {
   51%, 100% { opacity: 0; }
 }
 
-.message-time {
+.message-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-top: 4px;
+}
+
+.message-time {
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.msg-copy-btn {
+  opacity: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: rgba(0,0,0,0.05);
+  cursor: pointer;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover {
+    background: rgba(90,141,238,0.12);
+    color: var(--accent-blue);
+  }
+}
+
+.message-row:hover .msg-copy-btn {
+  opacity: 1;
 }
 
 .typing-card {

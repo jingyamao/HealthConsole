@@ -72,6 +72,10 @@
         <router-view />
       </main>
     </div>
+
+<!-- TODO: 待后续优化后再启用
+    <FloatingAIChat />
+-->
   </div>
 </template>
 
@@ -81,6 +85,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { Menu, SwitchButton, ArrowDown, UserFilled, Clock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import HeaderNav from '@/components/headerNav.vue'
+// TODO: 待后续优化后再启用
+// import FloatingAIChat from '@/components/FloatingAIChat.vue'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
 
